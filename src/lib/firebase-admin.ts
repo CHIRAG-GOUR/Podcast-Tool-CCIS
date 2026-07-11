@@ -1,7 +1,7 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-if (!getApps().length) {
+if (!getApps().length && process.env.FIREBASE_PROJECT_ID) {
   try {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY
       ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
@@ -20,5 +20,6 @@ if (!getApps().length) {
   }
 }
 
-const db = getFirestore();
+// Provide a dummy mock if not initialized to prevent Next.js build crashes during module collection
+const db = getApps().length > 0 ? getFirestore() : {} as any;
 export { db };

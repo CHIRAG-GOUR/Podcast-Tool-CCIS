@@ -11,7 +11,7 @@ export async function GET() {
     const count = snapshot.size;
     
     // Get last 3 recent
-    const recent = snapshot.docs.slice(0, 3).map(doc => {
+    const recent = snapshot.docs.slice(0, 3).map((doc: any) => {
       const data = doc.data();
       return {
         id: doc.id,

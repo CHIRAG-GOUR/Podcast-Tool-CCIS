@@ -8,7 +8,7 @@ export async function GET() {
     const reportsRef = adminDb.collection("research_reports");
     const snapshot = await reportsRef.orderBy("createdAt", "desc").get();
     
-    const reports = snapshot.docs.map(doc => {
+    const reports = snapshot.docs.map((doc: any) => {
       const data = doc.data();
       return {
         id: doc.id,
