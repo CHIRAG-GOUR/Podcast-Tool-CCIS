@@ -13,7 +13,8 @@ import {
   Share2,
   History,
   Settings,
-  Sparkles
+  Sparkles,
+  Video
 } from "lucide-react"
 
 const workflow = [
@@ -26,6 +27,7 @@ const production = [
   { name: "Topic Library", href: "/topic-library", icon: Library },
   { name: "Script Generator", href: "/script-generator", icon: PenTool },
   { name: "Publishing Assets", href: "/publishing-assets", icon: Share2 },
+  { name: "Video Studio", href: "/video-studio", icon: Video },
 ]
 
 const library = [
