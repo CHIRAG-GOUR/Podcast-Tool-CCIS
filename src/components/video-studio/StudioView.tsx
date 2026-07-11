@@ -119,7 +119,7 @@ export function StudioView({ fileDetails }: StudioViewProps) {
       <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
         
         {/* Left Panel: Clips Gallery */}
-        <aside className="w-full lg:w-80 border-r border-border/50 bg-card/30 flex flex-col overflow-hidden shrink-0">
+        <aside className="w-full lg:w-72 border-r border-border/50 bg-card/30 flex flex-col overflow-hidden shrink-0">
           <div className="p-4 border-b border-border/50 flex items-center gap-2 font-medium">
             <Wand2 className="w-4 h-4 text-primary" />
             AI Generated Clips
@@ -161,10 +161,10 @@ export function StudioView({ fileDetails }: StudioViewProps) {
         </aside>
 
         {/* Middle Panel: Player & Timeline */}
-        <main className="flex-1 flex flex-col min-w-0 bg-background/50">
+        <main className="flex-1 flex flex-col min-w-0 bg-background/50 overflow-hidden">
           {/* Player Area */}
-          <div className="flex-1 p-6 flex flex-col items-center justify-center relative">
-            <div className="aspect-[9/16] h-full max-h-[500px] bg-black rounded-2xl overflow-hidden relative shadow-2xl ring-1 ring-white/10 flex flex-col">
+          <div className="flex-1 p-4 lg:p-6 flex flex-col xl:flex-row gap-6 items-center justify-center overflow-y-auto">
+            <div className="aspect-[9/16] h-[55vh] min-h-[400px] max-h-[700px] shrink-0 bg-black rounded-2xl overflow-hidden relative shadow-2xl ring-1 ring-white/10 flex flex-col">
               {/* Mock Video content */}
               <div className="flex-1 flex items-center justify-center relative">
                 {/* Mock Captions */}
@@ -182,13 +182,13 @@ export function StudioView({ fileDetails }: StudioViewProps) {
               </div>
             </div>
 
-            {/* AI Suggestions Floating Panel */}
-            <div className="absolute bottom-6 left-6 max-w-sm bg-card/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl overflow-hidden">
+            {/* AI Suggestions Floating Panel (Now Inline) */}
+            <div className="w-full max-w-sm bg-card/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl overflow-hidden shrink-0">
               <div className="p-3 border-b border-border/50 bg-primary/5 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <span className="text-xs font-semibold uppercase tracking-wider">AI Suggestions</span>
               </div>
-              <div className="p-2 max-h-32 overflow-y-auto space-y-1">
+              <div className="p-2 space-y-1">
                 {AI_SUGGESTIONS.map((suggestion, i) => (
                   <div key={i} className="flex items-start gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
@@ -203,7 +203,7 @@ export function StudioView({ fileDetails }: StudioViewProps) {
           </div>
 
           {/* AI Timeline */}
-          <div className="h-48 border-t border-border/50 bg-card/30 p-4 flex flex-col shrink-0">
+          <div className="h-32 border-t border-border/50 bg-card/30 p-4 flex flex-col shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-muted-foreground">Intelligent Timeline</span>
               <div className="flex items-center gap-3">
@@ -244,7 +244,7 @@ export function StudioView({ fileDetails }: StudioViewProps) {
         </main>
 
         {/* Right Panel: Editor Tools */}
-        <aside className="w-full lg:w-80 border-l border-border/50 bg-card/30 flex flex-col shrink-0">
+        <aside className="w-full lg:w-72 border-l border-border/50 bg-card/30 flex flex-col shrink-0">
           <div className="flex border-b border-border/50">
             {(['video', 'text', 'audio', 'branding'] as const).map(tab => (
               <button
