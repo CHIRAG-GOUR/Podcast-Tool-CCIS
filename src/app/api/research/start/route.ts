@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db as adminDb } from "@/lib/firebase-admin";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const { query, style } = await req.json();

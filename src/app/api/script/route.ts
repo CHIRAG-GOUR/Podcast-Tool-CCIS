@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const { topic, reportData, duration, format, hosts } = await req.json();
