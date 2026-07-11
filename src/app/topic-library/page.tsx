@@ -31,6 +31,11 @@ export default function TopicLibrary() {
 
   const folders = ["All Research", "Education", "Technology", "Business"]
 
+  const handleSelectReport = (report: any) => {
+    setSelectedReport(report)
+    if (typeof window !== "undefined") localStorage.setItem("activeReportId", report.id)
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       <div className="flex justify-between items-center">
