@@ -1,45 +1,37 @@
 "use client"
 
 import { Suspense, useState, FormEvent, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Search, Loader2, Sparkles, Settings2 } from "lucide-react"
-import ReactMarkdown from "react-markdown"
-import { ScriptBoard } from "@/components/ui/ScriptBoard"
-
-const SCRIPT_STYLES = [
-  "Professional", "Fun & Casual", "Corporate / Office", "Educational", 
-  "Satirical / Comedy", "Deep Dive / Analytical", "Storytelling / Narrative", 
-  "Debate / Controversial", "Interview Style", "Quick Tips / Bitesize"
-]
+import { Search, Loader2, Sparkles, Settings2, ArrowRight } from "lucide-react"
+import { DeepResearchBoard } from "@/components/ui/DeepResearchBoard"
 
 function ResearchContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const initialQuery = searchParams.get("q") || ""
 
   const [query, setQuery] = useState(initialQuery)
-  const [style, setStyle] = useState("Professional")
   const [isSearching, setIsSearching] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState("")
   const [report, setReport] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showOptions, setShowOptions] = useState(false)
 
   // Auto-start research if query parameter exists
   useEffect(() => {
     if (initialQuery && !isSearching && !report && !error) {
-      handleResearchCore(initialQuery, style)
+      handleResearchCore(initialQuery)
     }
   }, [initialQuery])
 
   const handleResearch = async (e: FormEvent) => {
     e.preventDefault()
     if (!query.trim()) return
-    handleResearchCore(query, style)
+    handleResearchCore(query)
   }
 
-  const handleResearchCore = async (searchQuery: string, selectedStyle: string) => {
+  const handleResearchCore = async (searchQuery: string) => {
     setIsSearching(true)
     setReport(null)
     setProgress(0)
@@ -50,7 +42,7 @@ function ResearchContent() {
       const response = await fetch("/api/research/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery, style: selectedStyle }),
+        body: JSON.stringify({ query: searchQuery }),
       })
 
       if (!response.ok) {
@@ -105,6 +97,11 @@ function ResearchContent() {
     }
   }
 
+  const handleGenerateScript = () => {
+    // In a real app, we might pass an ID. Here we pass the topic.
+    router.push(`/script-generator?topic=${encodeURIComponent(query)}`)
+  }
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* Header */}
@@ -136,15 +133,6 @@ function ResearchContent() {
             </div>
             
             <button
-              type="button"
-              onClick={() => setShowOptions(!showOptions)}
-              className="mr-2 p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-              title="Research Options"
-            >
-              <Settings2 className="h-5 w-5" />
-            </button>
-
-            <button
               type="submit"
               disabled={isSearching || !query.trim()}
               className="w-full sm:w-auto mt-2 sm:mt-0 rounded-xl bg-primary px-8 py-3 font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -160,33 +148,6 @@ function ResearchContent() {
             </button>
           </div>
         </div>
-
-        {/* Options Panel */}
-        {showOptions && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            className="rounded-xl border bg-card p-4 shadow-sm"
-          >
-            <h4 className="text-sm font-semibold mb-3">Target Output Style</h4>
-            <div className="flex flex-wrap gap-2">
-              {SCRIPT_STYLES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStyle(s)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all border ${
-                    style === s 
-                      ? 'bg-primary text-primary-foreground border-primary' 
-                      : 'bg-transparent text-muted-foreground hover:bg-muted border-border'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
       </form>
 
       {/* Progress View */}
@@ -242,9 +203,21 @@ function ResearchContent() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border bg-card p-8 shadow-sm max-w-none overflow-hidden"
+          className="flex flex-col items-center"
         >
-          <ScriptBoard rawReport={report} />
+          <DeepResearchBoard rawReport={report} />
+          
+          {/* Workflow Bridge */}
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1 }}
+            onClick={handleGenerateScript}
+            className="mt-8 flex items-center justify-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-xl text-lg font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+          >
+            Generate Script from Research
+            <ArrowRight className="w-6 h-6" />
+          </motion.button>
         </motion.div>
       )}
     </div>

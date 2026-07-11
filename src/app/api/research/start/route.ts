@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const { query, style } = await req.json();
+    const { query } = await req.json();
 
     if (!query) {
       return NextResponse.json({ error: "Query is required" }, { status: 400 });
@@ -35,62 +35,66 @@ export async function POST(req: Request) {
     // Run the research in the background
     (async () => {
       try {
-        await sendEvent("progress", { step: "Analyzing query intent...", progress: 10 });
+        await sendEvent("progress", { step: "✓ Searching YouTube", progress: 15 });
         
         const chat = proModel.startChat({
           history: [
             {
               role: "user",
-              parts: [{ text: `We are preparing a highly-researched podcast episode on the topic: "${query}". You are an expert investigative researcher and producer.` }],
+              parts: [{ text: `We are conducting a deep, comprehensive research sprint on the topic: "${query}". You are an elite investigative researcher.` }],
             },
             {
               role: "model",
-              parts: [{ text: "Understood. I am ready to conduct deep internet research and structure it into a professional podcast format." }],
+              parts: [{ text: "Understood. I will conduct a multifaceted deep dive gathering statistics, trends, expert opinions, and counter-arguments." }],
             },
           ],
         });
 
-        await sendEvent("progress", { step: "Running live Google Search for statistics & trends...", progress: 10 });
-        
         // Step 1: Initial exploration
-        const planPrompt = `Please use your Google Search tool to find the absolute most up-to-date, highly credible statistics, recent news, and market trends regarding: "${query}". Summarize your factual findings with extreme detail. Do not hold back on data.`;
+        const planPrompt = `Please use your Google Search tool to find the most recent YouTube videos and trending discussions regarding: "${query}". Summarize your factual findings with extreme detail. Do not hold back on data.`;
         await chat.sendMessage(planPrompt);
         
-        await sendEvent("progress", { step: "Gathering counter-arguments and expert opinions...", progress: 35 });
+        await sendEvent("progress", { step: "✓ Reading Reddit discussions", progress: 30 });
         
-        // Step 2: Deep Dive
-        const researchPrompt = `Excellent. Now, use your Search tool again to look for counter-arguments, debates, controversies, and expert opinions about this topic. We need a well-rounded, provocative perspective to make the podcast highly engaging. Compile the most compelling talking points.`;
-        await chat.sendMessage(researchPrompt);
+        // Step 2: Reddit and Forums
+        const redditPrompt = `Excellent. Now, use your Search tool again to look for Reddit discussions, debates, and public consensus about this topic. We need to know what real people are saying, their pain points, and the controversies.`;
+        await chat.sendMessage(redditPrompt);
         
-        await sendEvent("progress", { step: "Synthesizing research into a podcast structure...", progress: 70 });
+        await sendEvent("progress", { step: "⟳ Extracting Blogs & News...", progress: 55 });
         
-        // Step 3: Synthesis
-        const styleInstruction = style ? `The tone and style of the final output MUST BE: ${style}.` : `Use a professional yet engaging podcast tone.`;
-        
-        const finalPrompt = `You are a master podcast producer. Based on ALL the deep internet research, facts, statistics, and debates you just gathered in our previous messages, generate a highly structured, data-rich podcast script outline and show flow.
-${styleInstruction}
+        // Step 3: News and Expert Opinions
+        const newsPrompt = `Great. Now find the latest news articles, expert opinions, and statistical data. We need hard numbers, facts, and highly credible references.`;
+        await chat.sendMessage(newsPrompt);
 
-You MUST return ONLY a valid JSON object representing the podcast structure. Do not wrap it in markdown code blocks like \`\`\`json.
+        await sendEvent("progress", { step: "⟳ Generating Knowledge Graph...", progress: 80 });
+        
+        // Step 4: Synthesis
+        const finalPrompt = `You are a master researcher. Based on ALL the deep internet research, facts, statistics, and debates you just gathered in our previous messages, generate a highly structured, data-rich deep research report.
+
+You MUST return ONLY a valid JSON object representing the deep research. Do not wrap it in markdown code blocks like \`\`\`json.
 The JSON must follow this exact structure:
 {
-  "title": "Catchy Episode Title",
-  "brief": "A 2-sentence summary of the episode objective.",
-  "segments": [
-    {
-      "title": "Intro",
-      "duration": "2 mins",
-      "category": "intro", // Use "intro", "sponsor", "content", or "outro"
-      "blocks": [
-        {
-          "type": "dialogue", // or "bullets" for talking points
-          "content": "Welcome back to the show..." // if dialogue, string. if bullets, array of strings.
-        }
-      ]
-    }
+  "topic": "The exact topic researched",
+  "executiveSummary": "A highly detailed 2-paragraph summary of the entire landscape.",
+  "keyTakeaways": ["Takeaway 1", "Takeaway 2", "Takeaway 3"],
+  "statistics": [
+    { "stat": "85%", "description": "Percentage of people who..." }
+  ],
+  "expertOpinions": [
+    { "expert": "Name/Organization", "opinion": "Their quote or stance" }
+  ],
+  "redditConsensus": "A summary of what the public/Reddit thinks.",
+  "youtubeTrends": "A summary of what top YouTube creators are saying.",
+  "latestNews": ["News headline 1", "News headline 2"],
+  "counterArguments": ["Counter argument 1", "Counter argument 2"],
+  "references": [
+    { "title": "Source Title", "url": "https://...", "type": "Blog | YouTube | Reddit | News | Research Paper" }
   ]
 }
 
-Ensure you include an Intro, a Sponsor message, at least 3 deep Content segments (heavily packed with the specific deep research facts, statistics, and debates you just found), and an Outro. Make the content incredibly rich, detailed, and ensure it explicitly cites the data you researched.`;
+Ensure the content is incredibly rich, detailed, and directly cites the data you researched.`;
+
+        await sendEvent("progress", { step: "Waiting for Gemini...", progress: 95 });
 
         const finalResult = await chat.sendMessage(finalPrompt);
         let reportText = finalResult.response.text().trim();
@@ -104,14 +108,11 @@ Ensure you include an Intro, a Sponsor message, at least 3 deep Content segments
 
         const report = reportText;
         
-        await sendEvent("progress", { step: "Finalizing script board...", progress: 95 });
-        
         // Save to Firestore
         try {
           await adminDb.collection('research_reports').add({
             topic: query,
-            style: style || 'Standard',
-            report: report, // Now saving the JSON string
+            report: report, // Now saving the Deep Research JSON string
             createdAt: new Date()
           });
         } catch (dbError) {
@@ -139,3 +140,4 @@ Ensure you include an Intro, a Sponsor message, at least 3 deep Content segments
     return NextResponse.json({ error: "An error occurred during research" }, { status: 500 });
   }
 }
+
