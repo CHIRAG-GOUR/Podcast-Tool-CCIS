@@ -19,25 +19,55 @@ export async function POST(req: Request) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const proModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
-    const prompt = `You are a master podcast scriptwriter. 
-Take the following research report and outline for the topic "${topic}" and expand it into a FULL, WORD-FOR-WORD teleprompter-ready podcast script.
+    const prompt = `You are a master podcast scriptwriter and video producer. 
+Take the following research report and outline for the topic "${topic}" and expand it into a complete production package.
 
 Configuration:
-- Duration: Approximately ${duration} minutes (adjust word count accordingly, assuming 150 words per minute).
+- Duration: Approximately ${duration} minutes.
 - Format: ${format}
 - Hosts: ${hosts}
-
-Make it sound natural, conversational, and engaging. Include natural transitions, intro/outro bumpers, and sound effect/music cues where appropriate (e.g. [Upbeat intro music fades in]).
 
 Research Data to base the script on:
 ${JSON.stringify(reportData, null, 2)}
 
-Format the output cleanly using Markdown. Use bolding for speaker names (e.g., **Host 1:**).`;
+You MUST return ONLY a valid JSON object. Do not wrap it in markdown code blocks like \`\`\`json.
+The JSON must follow this exact structure, where each field contains markdown-formatted text:
+{
+  "overview": "A brief production overview, pacing guide, and tone direction.",
+  "script": "The FULL, WORD-FOR-WORD teleprompter-ready podcast script. Use bolding for speaker names (e.g., **Host 1:**). Include natural transitions and banter.",
+  "cameraNotes": "Camera angles, lighting suggestions, and set design notes.",
+  "broll": "A shot list of B-roll footage to insert during the edit to keep it engaging.",
+  "graphics": "Lower thirds, on-screen text, and data visualizations (charts/graphs) to display.",
+  "cta": "Suggested Calls to Action (subscribe, comment, newsletter, sponsors).",
+  "seo": "YouTube tags, chapters/timestamps, and SEO optimized description."
+}`;
 
     const result = await proModel.generateContent(prompt);
-    const scriptText = result.response.text();
+    let scriptText = result.response.text().trim();
 
-    return NextResponse.json({ script: scriptText });
+    if (scriptText.startsWith("\`\`\`json")) {
+        scriptText = scriptText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    } else if (scriptText.startsWith("\`\`\`")) {
+        scriptText = scriptText.replace(/\`\`\`/g, '').trim();
+    }
+    
+    let scriptData;
+    try {
+      scriptData = JSON.parse(scriptText);
+    } catch (e) {
+      // Fallback if the AI fails to generate JSON
+      scriptData = {
+        overview: "Failed to parse JSON. Raw output below.",
+        script: scriptText,
+        cameraNotes: "",
+        broll: "",
+        graphics: "",
+        cta: "",
+        seo: ""
+      }
+    }
+
+    return NextResponse.json({ scriptData });
   } catch (error) {
     console.error("Script Generation API Error:", error);
     return NextResponse.json({ error: "Failed to generate script" }, { status: 500 });
