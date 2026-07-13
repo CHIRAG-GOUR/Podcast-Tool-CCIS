@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/lib/AuthContext"
 import {
   LayoutDashboard,
   Search,
@@ -15,7 +16,8 @@ import {
   History,
   Settings,
   Sparkles,
-  Video
+  Video,
+  LogOut
 } from "lucide-react"
 
 const workflow = [
@@ -40,6 +42,7 @@ const library = [
 export function Sidebar() {
   const pathname = usePathname()
   const [isHovered, setIsHovered] = useState(false)
+  const { user, logout } = useAuth()
 
   const NavGroup = ({ title, items }: { title: string, items: typeof workflow }) => (
     <div className="mb-6">
@@ -111,7 +114,40 @@ export function Sidebar() {
         <NavGroup title="Production" items={production} />
         <NavGroup title="Library & Settings" items={library} />
       </div>
+
+      {/* User Profile & Logout */}
+      <div className={cn("p-4 border-t border-border/50", !isHovered && "px-2 flex flex-col items-center")}>
+        {isHovered ? (
+          <div className="flex items-center justify-between overflow-hidden">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                <span className="text-primary font-medium text-xs">
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                </span>
+              </div>
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-sm font-medium truncate">{user?.name || "User"}</span>
+                <span className="text-xs text-muted-foreground truncate">{user?.email || ""}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => logout()}
+              className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => logout()}
+            className="w-8 h-8 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 flex items-center justify-center transition-colors shrink-0"
+            title="Logout"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
-
