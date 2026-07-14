@@ -1,50 +1,81 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
 import { CheckCircle2, Circle, Loader2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ProcessingViewProps {
-  fileDetails: { name: string; size: number; type: string } | null
-  onComplete: () => void
+  file: File | null
+  context?: string
+  onComplete: (clips: any[]) => void
+  onCancel?: () => void
 }
 
 const STEPS = [
   "Upload Complete",
-  "Extracting Audio",
-  "Generating Transcript",
-  "Detecting Speakers",
-  "Identifying Topics",
-  "Detecting Hooks",
-  "Ranking Viral Moments",
-  "Generating Captions",
-  "Rendering Clips"
+  "Analyzing Video Content",
+  "Generating Smart Clips",
+  "Finalizing Project"
 ]
 
-export function ProcessingView({ fileDetails, onComplete }: ProcessingViewProps) {
+export function ProcessingView({ file, context, onComplete, onCancel }: ProcessingViewProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock processing simulation
   useEffect(() => {
     let current = 0
+    // We will advance the UI steps slowly to simulate progress while the API is actually processing
     const interval = setInterval(() => {
       current++
-      if (current >= STEPS.length) {
-        clearInterval(interval)
-        setTimeout(() => {
-          onComplete()
-        }, 800)
-      } else {
+      if (current < STEPS.length - 1) {
         setCurrentStepIndex(current)
       }
-    }, 1500) // 1.5s per step for demonstration
+    }, 4000) // advance every 4s, but pause at the last step
 
-    return () => clearInterval(interval)
-  }, [onComplete])
+    const processVideo = async () => {
+      try {
+        if (!file) throw new Error("No file selected");
+        
+        const formData = new FormData();
+        formData.append("video", file);
+        if (context) formData.append("context", context);
+
+        const res = await fetch("/api/video/analyze", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          let errMessage = "Failed to analyze video";
+          try {
+            const errData = await res.json();
+            if (errData.error) errMessage = errData.error;
+          } catch(e) {}
+          throw new Error(errMessage);
+        }
+
+        const data = await res.json();
+
+        clearInterval(interval);
+        setCurrentStepIndex(STEPS.length); // complete all steps
+        setTimeout(() => {
+          onComplete(data.clips || []);
+        }, 1000);
+
+      } catch (err: any) {
+        console.error("Video processing error:", err);
+        setError(err.message || "Failed to analyze video. Please try again.");
+        clearInterval(interval);
+      }
+    };
+
+    processVideo();
+
+    return () => clearInterval(interval);
+  }, [file, onComplete]);
 
   return (
-    <div className="w-full max-w-2xl bg-card/50 backdrop-blur-xl border rounded-3xl p-10 shadow-lg relative overflow-hidden">
+    <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-3xl p-6 md:p-10 shadow-xl relative overflow-hidden">
       {/* Decorative background blur */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
       
@@ -52,9 +83,15 @@ export function ProcessingView({ fileDetails, onComplete }: ProcessingViewProps)
         <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <Sparkles className="w-8 h-8 text-primary animate-pulse" />
         </div>
-        <h2 className="text-3xl font-bold mb-3">AI Engine Processing</h2>
-        <p className="text-muted-foreground">
-          {fileDetails?.name ? `Analyzing ${fileDetails.name}...` : 'Analyzing your video...'} You can safely leave this page, we'll notify you when it's done.
+        {error ? (
+           <h2 className="text-3xl font-bold mb-3 text-red-600">Processing Failed</h2>
+        ) : (
+           <h2 className="text-3xl font-bold mb-3 text-gray-900">AI Engine Processing</h2>
+        )}
+        <p className={error ? "text-red-500 font-medium" : "text-gray-500"}>
+          {error 
+             ? error
+             : (file?.name ? `Analyzing ${file.name}...` : 'Analyzing your video...') + " You can safely leave this page, we'll notify you when it's done."}
         </p>
       </div>
 
@@ -62,7 +99,6 @@ export function ProcessingView({ fileDetails, onComplete }: ProcessingViewProps)
         {STEPS.map((step, index) => {
           const isCompleted = index < currentStepIndex
           const isCurrent = index === currentStepIndex
-          const isPending = index > currentStepIndex
 
           return (
             <div key={step} className="flex items-center gap-4 relative">
@@ -82,14 +118,14 @@ export function ProcessingView({ fileDetails, onComplete }: ProcessingViewProps)
                 ) : isCurrent ? (
                   <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
                 ) : (
-                  <Circle className="w-6 h-6 text-muted-foreground/30" />
+                  <Circle className="w-6 h-6 text-gray-300" />
                 )}
               </div>
               
               <span 
                 className={cn(
-                  "font-medium text-lg transition-colors duration-300",
-                  isCompleted ? "text-foreground" : isCurrent ? "text-blue-500 font-semibold" : "text-muted-foreground/50"
+                  "font-medium md:text-lg transition-colors duration-300",
+                  isCompleted ? "text-gray-900" : isCurrent ? "text-blue-600 font-semibold" : "text-gray-400"
                 )}
               >
                 {step}
@@ -98,6 +134,17 @@ export function ProcessingView({ fileDetails, onComplete }: ProcessingViewProps)
           )
         })}
       </div>
+
+      {error && (
+        <div className="mt-8 flex justify-center">
+           <button 
+             onClick={onCancel}
+             className="px-6 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 font-medium transition-colors"
+           >
+             Go Back & Try Again
+           </button>
+        </div>
+      )}
     </div>
   )
 }

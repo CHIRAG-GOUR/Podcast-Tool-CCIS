@@ -93,30 +93,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative min-h-screen">
-      {/* Right Floating Social Pill */}
-      <div className="fixed right-0 top-1/2 -translate-y-1/2 z-50 hidden md:flex flex-col gap-3.5 bg-white/80 backdrop-blur-md border border-slate-200/55 p-3 rounded-l-2xl shadow-xl">
-        <SocialIcon color="bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600" icon={InstagramIcon} label="Instagram" onClick={() => {
-          const url = process.env.NEXT_PUBLIC_SOCIAL_MEDIA_URL || "https://social-media-tool-three.vercel.app";
-          const sso = typeof window !== "undefined" ? localStorage.getItem("skilizee_sso") : null;
-          window.location.href = sso ? `${url}?sso=${sso}&tab=analytics` : `${url}?tab=analytics`;
-        }} />
-        <SocialIcon color="bg-black" icon={MusicIcon} label="TikTok" onClick={() => {
-          const url = process.env.NEXT_PUBLIC_SOCIAL_MEDIA_URL || "https://social-media-tool-three.vercel.app";
-          const sso = typeof window !== "undefined" ? localStorage.getItem("skilizee_sso") : null;
-          window.location.href = sso ? `${url}?sso=${sso}&tab=analytics` : `${url}?tab=analytics`;
-        }} />
-        <SocialIcon color="bg-[#0077b5]" icon={LinkedinIcon} label="LinkedIn" onClick={() => {
-          const url = process.env.NEXT_PUBLIC_LINKEDIN_URL || "https://linkedin-tool-one.vercel.app";
-          const sso = typeof window !== "undefined" ? localStorage.getItem("skilizee_sso") : null;
-          window.location.href = sso ? `${url}?sso=${sso}` : url;
-        }} />
-        <SocialIcon color="bg-[#ff0000]" icon={YoutubeIcon} label="YouTube" onClick={() => {
-          const url = process.env.NEXT_PUBLIC_SOCIAL_MEDIA_URL || "https://social-media-tool-three.vercel.app";
-          const sso = typeof window !== "undefined" ? localStorage.getItem("skilizee_sso") : null;
-          window.location.href = sso ? `${url}?sso=${sso}&tab=analytics` : `${url}?tab=analytics`;
-        }} />
-        <SocialIcon color="bg-indigo-600" icon={MicIcon} label="Podcast Studio" onClick={() => {}} />
-      </div>
+      {/* Right Floating Social Pill - Removed to prevent overlap with Video Studio inspector */}
 
       <DashboardLayout>{children}</DashboardLayout>
     </div>

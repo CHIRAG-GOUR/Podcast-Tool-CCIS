@@ -5,12 +5,13 @@ import { motion } from "framer-motion"
 import { UploadCloud, FileVideo, X, Play, Clock, Monitor } from "lucide-react"
 
 interface UploadViewProps {
-  onUploadComplete: (file: File) => void
+  onUploadComplete: (file: File, context: string) => void
 }
 
 export function UploadView({ onUploadComplete }: UploadViewProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [videoContext, setVideoContext] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -136,8 +137,18 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">What is this video about? (Optional)</label>
+                <textarea 
+                  value={videoContext}
+                  onChange={(e) => setVideoContext(e.target.value)}
+                  placeholder="e.g., This is a podcast about AI startups. Find the most funny and viral moments."
+                  className="w-full bg-background border rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none min-h-[80px]"
+                />
+              </div>
+
               <button 
-                onClick={() => onUploadComplete(selectedFile)}
+                onClick={() => onUploadComplete(selectedFile, videoContext)}
                 className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-4 rounded-xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg hover:shadow-xl hover:scale-[1.01]"
               >
                 <Play className="w-5 h-5 fill-current" />

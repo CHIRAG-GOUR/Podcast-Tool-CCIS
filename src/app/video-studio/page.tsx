@@ -10,14 +10,20 @@ export type ViewState = 'upload' | 'processing' | 'studio'
 
 export default function VideoStudio() {
   const [view, setView] = useState<ViewState>('upload')
-  const [fileDetails, setFileDetails] = useState<{name: string, size: number, type: string} | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [fileUrl, setFileUrl] = useState<string | null>(null)
+  const [videoContext, setVideoContext] = useState("")
+  const [clips, setClips] = useState<any[]>([])
 
-  const handleUploadComplete = (file: File) => {
-    setFileDetails({ name: file.name, size: file.size, type: file.type })
+  const handleUploadComplete = (uploadedFile: File, context: string) => {
+    setFile(uploadedFile)
+    setFileUrl(URL.createObjectURL(uploadedFile))
+    setVideoContext(context)
     setView('processing')
   }
 
-  const handleProcessingComplete = () => {
+  const handleProcessingComplete = (generatedClips: any[]) => {
+    setClips(generatedClips)
     setView('studio')
   }
 
@@ -30,7 +36,7 @@ export default function VideoStudio() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="h-full w-full flex items-center justify-center p-8"
+            className="h-full w-full flex items-center justify-center p-4 md:p-8 overflow-y-auto"
           >
             <UploadView onUploadComplete={handleUploadComplete} />
           </motion.div>
@@ -42,9 +48,9 @@ export default function VideoStudio() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
-            className="h-full w-full flex items-center justify-center p-8"
+            className="h-full w-full flex items-center justify-center p-4 md:p-8"
           >
-            <ProcessingView fileDetails={fileDetails} onComplete={handleProcessingComplete} />
+            <ProcessingView file={file} context={videoContext} onComplete={handleProcessingComplete} onCancel={() => setView('upload')} />
           </motion.div>
         )}
 
@@ -55,7 +61,7 @@ export default function VideoStudio() {
             animate={{ opacity: 1 }}
             className="h-full w-full"
           >
-            <StudioView fileDetails={fileDetails} />
+            <StudioView file={file} fileUrl={fileUrl} clips={clips} />
           </motion.div>
         )}
       </AnimatePresence>
