@@ -13,6 +13,36 @@ import {
   Moon, Expand, Minimize, Command, X
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import WaveSurfer from 'wavesurfer.js'
+
+const WaveformTrack = ({ fileUrl, width }: { fileUrl: string, width: number }) => {
+   const containerRef = useRef<HTMLDivElement>(null)
+   useEffect(() => {
+      if (!containerRef.current || !fileUrl) return
+      const ws = WaveSurfer.create({
+         container: containerRef.current,
+         waveColor: 'rgba(34, 197, 94, 0.4)',
+         progressColor: 'rgba(34, 197, 94, 0.9)',
+         url: fileUrl,
+         height: 38,
+         barWidth: 2,
+         barGap: 1,
+         barRadius: 2,
+         interact: false,
+         cursorWidth: 0,
+         normalize: true,
+      })
+      return () => {
+         ws.destroy()
+      }
+   }, [fileUrl])
+   
+   return (
+      <div className="absolute inset-0 top-4 bottom-1 px-1 flex items-center overflow-hidden opacity-90">
+         <div ref={containerRef} style={{ width: width - 8 }} />
+      </div>
+   )
+}
 
 const CopyButton = ({ text }: { text: string }) => {
    const [copied, setCopied] = useState(false);
@@ -90,9 +120,8 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
   // Context Menu
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, type: string, targetId: string } | null>(null)
   
-  // Real Thumbnails & Waveform
+  // Real Thumbnails
   const [thumbnails, setThumbnails] = useState<string[]>([])
-  const [audioWaveform, setAudioWaveform] = useState<number[]>([])
 
   // Generate real frames from video using hidden canvas
   useEffect(() => {
@@ -130,15 +159,6 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
        }
        if (isMounted) setThumbnails(thumbs);
     }
-    
-    // Generate realistic audio waveform structure
-    const waves = Array.from({length: 400}).map((_, i) => {
-        // Create a more natural looking waveform using sine waves and random noise
-        const base = Math.sin(i * 0.1) * 30 + 40;
-        const noise = Math.random() * 30;
-        return Math.min(100, Math.max(10, base + noise));
-    });
-    setAudioWaveform(waves);
     
     generate();
     return () => { isMounted = false; }
@@ -1251,32 +1271,15 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                         
                         {t.type === 'audio' && projectClips.map(c => (
                            <div key={c.id} className={cn(
-                              "absolute h-14 top-1 rounded-md overflow-hidden border transition-all shadow-inner",
-                              "border-gray-800 bg-[#050505]"
+                              "absolute h-14 top-1 rounded-md overflow-hidden border transition-all",
+                              "border-green-500/50 bg-green-500/10"
                            )}
-                           style={{ 
-                              left: `${c.start * zoom}px`, 
-                              width: `${c.duration * zoom}px`,
-                              backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
-                              backgroundSize: '8px 8px'
-                           }}
+                           style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
                            >
-                              <div className="absolute top-1 left-2 text-[9px] font-bold text-white/90 bg-black/50 backdrop-blur-sm px-1.5 py-0.5 rounded shadow z-20 flex items-center gap-1">
-                                 <AudioWaveform className="w-3 h-3 text-[#FF00FF]" /> Audio Track
+                              <div className="absolute top-1 left-2 text-[9px] font-bold text-green-700 dark:text-green-300 z-10 flex items-center gap-1">
+                                 <AudioWaveform className="w-3 h-3" /> Audio Track
                               </div>
-                              <div className="absolute inset-0 top-3 bottom-1 flex items-center justify-between px-1 overflow-hidden z-10">
-                                 {audioWaveform.map((h, i) => {
-                                    const hue = 60 + (i / audioWaveform.length) * 300; // Sweep from yellow to blue/purple
-                                    return (
-                                       <div key={i} className="rounded-[1px] transition-all" style={{ 
-                                          height: `${h}%`, 
-                                          width: '1.5px',
-                                          backgroundColor: `hsl(${hue}, 100%, 55%)`,
-                                          boxShadow: `0 0 6px hsl(${hue}, 100%, 55%)`
-                                       }} />
-                                    );
-                                 })}
-                              </div>
+                              <WaveformTrack fileUrl={fileUrl} width={c.duration * zoom} />
                            </div>
                         ))}
                         
