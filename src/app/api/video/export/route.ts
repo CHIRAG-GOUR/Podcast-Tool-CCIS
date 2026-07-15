@@ -61,23 +61,23 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
     } else if (preset === 'modern-clean') {
         fontName = 'Inter';
         baseFontSize = Math.round(fontSize * 0.8);
-        colors = '&H00000000,&H000000FF,&H00000000,&HFFFFFFFF'; // Black text, White background
-        styleProps = '0,0,3,0,0,0'; // BorderStyle=3 (Opaque box)
-        activeColor = '&HF6823B&'; // Blue highlight (BGR format: F6 82 3B -> 3B82F6)
+        colors = '&H00000000,&H000000FF,&H00FFFFFF,&H00000000'; // Black text, White background box
+        styleProps = '0,0,3,4,0,0'; // BorderStyle=3 (Opaque box), Outline=4 for padding
+        activeColor = '&HF6823B&'; // Blue highlight
         inactiveColor = '&H000000&'; // Black
     } else if (preset === 'paper-cut') {
         fontName = 'Segoe Print';
         baseFontSize = fontSize;
-        colors = '&H00111111,&H000000FF,&H00000000,&H00DDF0F6'; // Black text, Beige paper background (RGB: F6F0DD)
-        styleProps = '-1,0,3,0,2,0'; // BorderStyle=3
+        colors = '&H00111111,&H000000FF,&H00DDF0F6,&H00000000'; // Black text, Beige paper background box
+        styleProps = '-1,0,3,6,2,0'; // BorderStyle=3, Outline=6
         activeColor = '&H0000FF&'; // Pure Red
         inactiveColor = '&H111111&';
         activeScale = true;
     } else if (preset === 'unusual-paper') {
         fontName = 'Ink Free';
         baseFontSize = fontSize;
-        colors = '&H00000000,&H000000FF,&H00000000,&H00E6EBF0'; // Black text, light grey-beige box (RGB: F0EBE6)
-        styleProps = '-1,0,3,2,0,0'; // BorderStyle=3, Outline=2
+        colors = '&H00000000,&H000000FF,&H00E6EBF0,&H00000000'; // Black text, light grey-beige box
+        styleProps = '-1,0,3,6,0,0'; // BorderStyle=3, Outline=6
         activeColor = '&H0000FF&'; // Pure Red
         inactiveColor = '&H000000&';
     } else if (preset === 'beast') {
@@ -90,8 +90,8 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
     } else if (preset === 'youtube') {
         fontName = 'Arial';
         baseFontSize = Math.round(fontSize * 0.6);
-        colors = '&H00FFFFFF,&H000000FF,&H00000000,&HB3000000';
-        styleProps = '-1,0,3,0,0,0'; 
+        colors = '&H00FFFFFF,&H000000FF,&H80000000,&H00000000'; // White text, transparent black box
+        styleProps = '-1,0,3,4,0,0'; 
         activeColor = '&HFFFFFF&';
         inactiveColor = '&HFFFFFF&';
     } else if (preset === 'tiktok') {
