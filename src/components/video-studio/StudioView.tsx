@@ -365,8 +365,15 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                      {aiClips.map((clip: any) => (
                        <div key={clip.id} className={cn("border rounded-lg p-3 cursor-pointer transition-colors group", borderCol, bgPanel, theme === 'dark' ? "hover:border-[#6366F1]/50" : "hover:border-[#6366F1]")}>
                           <div className="relative aspect-video bg-black rounded-md mb-2 overflow-hidden flex items-center justify-center">
-                             <Play className="w-6 h-6 text-white/50 group-hover:text-white transition-colors" />
-                             <div className="absolute top-2 right-2 bg-black/60 px-1.5 rounded text-[10px] text-white">
+                             {fileUrl && (
+                                <video 
+                                   src={`${fileUrl}#t=${clip.start_time || 0.1}`} 
+                                   className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-opacity"
+                                   preload="metadata"
+                                />
+                             )}
+                             <Play className="relative z-10 w-6 h-6 text-white/70 group-hover:text-white transition-colors drop-shadow-md" />
+                             <div className="absolute z-10 top-2 right-2 bg-black/60 px-1.5 rounded text-[10px] text-white drop-shadow-md">
                                {clip.time}
                              </div>
                           </div>
