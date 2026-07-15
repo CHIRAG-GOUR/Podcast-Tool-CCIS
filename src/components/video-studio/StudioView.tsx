@@ -1016,10 +1016,13 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
         </main>
 
         {/* Right Inspector */}
-        {showProperties && (
+        {showProperties ? (
         <aside className={cn("w-72 flex flex-col border-l shrink-0 overflow-hidden", borderCol, bgSidebar)}>
-               <div className={cn("flex border-b px-4 py-3", borderCol)}>
+               <div className={cn("flex justify-between items-center border-b px-4 py-3", borderCol)}>
                   <h3 className={cn("text-xs font-bold uppercase tracking-wider", textHighlight)}>Properties</h3>
+                  <button onClick={() => setShowProperties(false)} className={cn("p-1 rounded transition-colors", textMuted, bgHover)} title="Close Properties">
+                     <X className="w-4 h-4" />
+                  </button>
                </div>
                
                <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
@@ -1165,6 +1168,12 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                      </>
                   )}
                </div>
+             </aside>
+            ) : (
+             <aside className={cn("w-12 flex flex-col border-l shrink-0 items-center py-2", borderCol, bgSidebar)}>
+               <button onClick={() => setShowProperties(true)} className={cn("p-2 rounded transition-colors", textMuted, bgHover)} title="Expand Properties">
+                  <SlidersHorizontal className="w-5 h-5" />
+               </button>
              </aside>
             )}
       </div>
