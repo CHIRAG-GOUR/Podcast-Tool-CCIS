@@ -754,8 +754,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                                         currentActiveColor = colors[idx % colors.length];
                                                         currentStroke = '2.5px black';
                                                     } else if (preset === 'skillizee') {
-                                                        currentStroke = '2.5px #FFFF00'; // Yellow stroke
-                                                        currentTextDecoration = 'underline';
+                                                        currentTextDecoration = 'underline solid #FFC000 4px';
                                                     }
                                                 }
 
@@ -766,7 +765,8 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                                         display: 'inline-block',
                                                         transition: 'all 0.1s ease-in-out',
                                                         WebkitTextStroke: currentStroke,
-                                                        textDecoration: currentTextDecoration
+                                                        textDecoration: currentTextDecoration,
+                                                        textUnderlineOffset: '6px'
                                                     }}>
                                                         {w.word}
                                                     </span>

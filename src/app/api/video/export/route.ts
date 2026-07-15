@@ -140,8 +140,8 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         styleProps = '-1,0,1,3,0,0'; // Bold, Outline=3
         inactiveColor = '&HFFFFFF&'; // White
         activeColor = '&HEB6325&'; // Skillizee Blue (#2563EB -> BGR: EB6325)
-        activeExtraTags = '\\3c&H00FFFF&\\u1'; // Yellow outline stroke, underline
-        inactiveExtraTags = '\\3c&H000000&\\u0'; // Back to black outline, no underline
+        activeExtraTags = '\\u1'; // Yellow underline
+        inactiveExtraTags = '\\u0'; // No underline
     }
     
     // IMPORTANT: Alignment is 2 (Bottom-Center). MarginV pushes it up from the bottom.
