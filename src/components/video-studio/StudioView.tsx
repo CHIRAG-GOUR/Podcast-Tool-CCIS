@@ -7,7 +7,7 @@ import {
   Play, Pause, Scissors, Type, Volume2, Image as ImageIcon, 
   Settings, Download, ChevronRight, Zap, TrendingUp, BookOpen, 
   Smile, Flame, Activity, Layout, Wand2, ArrowLeft, Check, Layers, Sparkles, Trash2, SplitSquareHorizontal, ZoomIn, ZoomOut, Move,
-  Smartphone, Monitor, Square, Plus, Music, Combine, Edit2, Copy, PlusCircle, UploadCloud, Video,
+  Smartphone, Monitor, Square, Plus, Music, Combine, Edit2, Copy, PlusCircle, UploadCloud, Video, Film,
   Grid, Crop, RotateCcw, FastForward, Clock, Maximize, MousePointer2, Lock, Eye, EyeOff, Hash, FileVideo, AudioWaveform, SlidersHorizontal, Sun, Contrast, Gauge, Unlock, 
   Search, FolderOpen, Star, Undo, Redo, LayoutGrid, List, MessageSquare, MoreVertical, MousePointer,
   Moon, Expand, Minimize, Command, X
@@ -312,32 +312,17 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                          </button>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-    {[
-        { id: 'hormozi', name: 'Opus Pro (Hormozi)' },
-        { id: 'beast', name: 'MrBeast' },
-        { id: 'modern-clean', name: 'Modern Clean' },
-        { id: 'paper-cut', name: 'Paper Cut' },
-        { id: 'unusual-paper', name: 'Unusual Paper' },
-        { id: 'tiktok', name: 'TikTok Default' },
-        { id: 'netflix', name: 'Netflix' },
-        { id: 'ali', name: 'Ali Abdaal' },
-        { id: 'neon', name: 'Neon Glow' },
-        { id: 'cinematic', name: 'Cinematic' }
-    ].map(preset => (
-        <button 
-            key={preset.id}
-            onClick={() => updateActiveClipStyle({ preset: preset.id })}
-            className={cn(
-                "p-2 text-[10px] rounded border text-center transition-colors font-bold truncate",
-                (activeClip.style.preset === preset.id || (!activeClip.style.preset && preset.id === 'hormozi')) 
-                    ? "bg-[#6366F1] text-white border-[#6366F1]" 
-                    : (theme === 'dark' ? "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700" : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200")
-            )}
-        >
-            {preset.name}
-        </button>
-    ))}
-</div>
+                          {fileUrl ? (
+                             <div className={cn("aspect-video rounded bg-black flex items-center justify-center relative group overflow-hidden border cursor-pointer", borderCol)}>
+                                {thumbnails.length > 0 ? (
+                                   <img src={thumbnails[0]} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                ) : (
+                                   <video src={fileUrl} className="w-full h-full object-cover opacity-50" />
+                                )}
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 flex justify-between">
+                                  <span className="text-[8px] text-white truncate max-w-[80px]">{file?.name || 'Uploaded Video'}</span>
+                                  <span className="text-[8px] text-white">HD</span>
+                               </div>
                             </div>
                          ) : (
                             <div className={cn("aspect-video rounded bg-black flex items-center justify-center relative group overflow-hidden border", borderCol)}>
@@ -515,38 +500,21 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                       )}
                    </div>
                  )}
+
+                 {/* Effects Tab */}
                  {leftTab === 'effects' && (
-                    <div className="space-y-4 p-4">
-                       <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Suggested Hooks & Headings</h3>
-                       <div className="space-y-3">
-                          {[
-                             "🔥 You Won't Believe What Happened Next!",
-                             "The Secret to 10x Growth 🚀",
-                             "Stop Doing THIS Immediately 🛑",
-                             "Why 99% of People Fail at This...",
-                             "The Truth About The Industry 🤯"
-                          ].map((heading, i) => (
-                             <div key={i} className={cn("p-3 rounded border cursor-pointer transition-colors", bgMain, borderCol, "hover:border-[#6366F1]")} onClick={() => {
-                                 // Add a text clip with this heading
-                                 const newClip = {
-                                    id: 'hook_' + Date.now(),
-                                    trackId: 'v3', type: 'text',
-                                    start: 0, end: 3, duration: 3,
-                                    title: 'Hook Text',
-                                    text: heading,
-                                    chunks: [{ start: 0, end: 3, text: heading, words: [] }],
-                                    transform: { x: 0, y: 50, width: 600, height: 60, scale: 100, rotation: 0 },
-                                    style: { fontFamily: 'Montserrat', fontSize: 48, preset: 'hormozi' }
-                                 };
-                                 setProjectClips(p => [...p, newClip]);
-                             }}>
-                                <p className={cn("text-xs font-bold", textHighlight)}>{heading}</p>
-                                <p className={cn("text-[9px] mt-1", textMuted)}>Click to add to timeline (0:00 - 0:03)</p>
-                             </div>
+                    <div className="space-y-6">
+                       <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Suggested Hooks</h3>
+                       <div className="space-y-2">
+                          {["The untold truth about...", "Why you're wrong about...", "This changes everything:", "Stop doing this now!"].map((hook, i) => (
+                             <button key={i} className={cn("w-full p-3 rounded-lg border text-left transition-all", bgPanel, borderCol, "hover:border-[#6366F1] group")}>
+                                <p className={cn("text-[11px] font-semibold mb-1", textHighlight)}>{hook}</p>
+                                <span className={cn("text-[9px] opacity-0 group-hover:opacity-100 transition-opacity text-[#6366F1]")}>Click to add to timeline</span>
+                             </button>
                           ))}
                        </div>
-
-                       <div className="my-6 border-b" />
+                       
+                       <div className="w-full h-px bg-gray-200 dark:bg-gray-800 my-4" />
 
                        <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Video Effects</h3>
                        <div className="grid grid-cols-2 gap-2">
@@ -649,11 +617,12 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                      >
                        
                         {(() => {
-                                                        const preset = clip.style?.preset || 'hormozi';
+                            const preset = clip.style?.preset || 'hormozi';
                             const baseFontSize = clip.style?.fontSize || 48;
                             
+                            // Base text styles mapped from preset
                             let baseStyle: React.CSSProperties = {
-                                fontFamily: clip.style?.fontFamily || 'Inter, sans-serif',
+                                fontFamily: clip.style?.fontFamily || 'Inter',
                                 textAlign: 'center',
                                 whiteSpace: 'pre-wrap',
                                 maxWidth: '90%',
@@ -669,16 +638,12 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                             let inactiveColor = 'white';
                             let activeScale = 1.1;
 
-                            if (preset === 'hormozi' || preset === 'opus') {
-                                baseStyle.fontFamily = 'Montserrat, Impact, sans-serif';
+                            if (preset === 'hormozi') {
                                 baseStyle.fontSize = `${baseFontSize}px`;
                                 baseStyle.fontWeight = 900;
-                                baseStyle.WebkitTextStroke = '3px black';
-                                baseStyle.textShadow = '0px 4px 15px rgba(0,0,0,0.9), 0px 2px 5px rgba(0,0,0,1)';
+                                baseStyle.textShadow = '0px 4px 12px rgba(0,0,0,0.8), 0px 2px 4px rgba(0,0,0,1)';
                                 baseStyle.textTransform = 'uppercase';
-                                activeColor = '#FFF000'; // Super bright yellow
-                                inactiveColor = 'white';
-                                activeScale = 1.15; // Pronounced bounce
+                                activeColor = '#FFD700'; // Yellow
                             } else if (preset === 'beast') {
                                 baseStyle.fontFamily = 'Impact, sans-serif';
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 1.2)}px`;
@@ -688,41 +653,6 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 baseStyle.textTransform = 'uppercase';
                                 baseStyle.fontStyle = 'italic';
                                 activeColor = '#00FFFF'; // Cyan
-                            } else if (preset === 'modern-clean') {
-                                baseStyle.fontFamily = 'Inter, sans-serif';
-                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.8)}px`;
-                                baseStyle.fontWeight = 500;
-                                baseStyle.backgroundColor = 'white';
-                                baseStyle.color = 'black';
-                                baseStyle.padding = '8px 24px';
-                                baseStyle.borderRadius = '2px';
-                                baseStyle.boxShadow = '0px 10px 30px rgba(0,0,0,0.1)';
-                                inactiveColor = 'black';
-                                activeColor = '#3B82F6'; // Blue highlight
-                                activeScale = 1;
-                            } else if (preset === 'paper-cut') {
-                                baseStyle.fontFamily = 'Courier New, monospace';
-                                baseStyle.fontSize = `${baseFontSize}px`;
-                                baseStyle.fontWeight = 900;
-                                baseStyle.backgroundColor = '#FDFBF7';
-                                baseStyle.color = '#1A1A1A';
-                                baseStyle.padding = '4px 16px';
-                                baseStyle.transform = 'rotate(-2deg)';
-                                baseStyle.boxShadow = '2px 2px 0px rgba(0,0,0,1)';
-                                inactiveColor = '#1A1A1A';
-                                activeColor = '#E11D48'; // Rose
-                                activeScale = 1.05;
-                            } else if (preset === 'unusual-paper') {
-                                baseStyle.fontFamily = 'Georgia, serif';
-                                baseStyle.fontSize = `${baseFontSize}px`;
-                                baseStyle.fontWeight = 800;
-                                baseStyle.backgroundColor = '#111111';
-                                baseStyle.color = '#F5F5F5';
-                                baseStyle.padding = '10px 20px';
-                                baseStyle.border = '2px solid white';
-                                inactiveColor = '#F5F5F5';
-                                activeColor = '#FBBF24'; // Amber
-                                activeScale = 1;
                             } else if (preset === 'youtube') {
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 0.6)}px`;
                                 baseStyle.fontWeight = 600;
@@ -762,26 +692,45 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 baseStyle.fontWeight = 300;
                                 inactiveColor = '#9CA3AF'; // Gray
                                 activeColor = '#111827'; // Black
-                            } else if (preset === 'typewriter') {
-                                baseStyle.fontFamily = 'monospace';
-                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.7)}px`;
-                                baseStyle.backgroundColor = 'rgba(0,0,0,0.9)';
-                                baseStyle.border = '1px solid #22c55e';
-                                baseStyle.padding = '8px 16px';
-                                inactiveColor = '#166534';
-                                activeColor = '#22c55e';
-                                activeScale = 1;
+                                if (theme === 'dark') activeColor = '#ffffff';
+                            } else if (preset === 'modern-clean') {
+                                baseStyle.fontFamily = 'Inter, sans-serif';
+                                baseStyle.fontSize = `${baseFontSize}px`;
+                                baseStyle.fontWeight = 600;
+                                baseStyle.padding = '8px 24px';
+                                baseStyle.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+                                baseStyle.backdropFilter = 'blur(10px)';
+                                baseStyle.borderLeft = '4px solid #6366F1';
+                                baseStyle.borderRadius = '4px';
+                                activeColor = '#ffffff';
+                                activeScale = 1.05;
+                            } else if (preset === 'paper-cut') {
+                                baseStyle.fontFamily = 'Impact, sans-serif';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 1.1)}px`;
+                                baseStyle.fontWeight = 900;
+                                baseStyle.textTransform = 'uppercase';
+                                baseStyle.backgroundColor = 'white';
+                                baseStyle.color = 'black';
+                                baseStyle.padding = '4px 12px';
+                                baseStyle.clipPath = 'polygon(2% 0, 100% 2%, 98% 100%, 0 98%)';
+                                baseStyle.transform = `rotate(-2deg) scale(${isSelected ? 1.1 : 1})`;
+                                inactiveColor = 'rgba(0,0,0,0.4)';
+                                activeColor = 'black';
+                            } else if (preset === 'unusual-paper') {
+                                baseStyle.fontFamily = 'Courier New, monospace';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.9)}px`;
+                                baseStyle.fontWeight = 800;
+                                baseStyle.textTransform = 'uppercase';
+                                baseStyle.backgroundColor = '#FFD700';
+                                baseStyle.color = 'black';
+                                baseStyle.padding = '4px 16px';
+                                baseStyle.transform = `rotate(3deg) scale(${isSelected ? 1.1 : 1})`;
+                                baseStyle.boxShadow = '4px 4px 0px rgba(0,0,0,1)';
+                                inactiveColor = 'rgba(0,0,0,0.6)';
+                                activeColor = 'black';
                             } else if (preset === 'cinematic') {
                                 baseStyle.fontFamily = 'Georgia, serif';
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 0.8)}px`;
-                                baseStyle.fontWeight = 400;
-                                baseStyle.fontStyle = 'italic';
-                                baseStyle.letterSpacing = '2px';
-                                baseStyle.textShadow = '0px 2px 8px rgba(0,0,0,0.8)';
-                                inactiveColor = 'rgba(255,255,255,0.5)';
-                                activeColor = 'white';
-                                activeScale = 1;
-                            }px`;
                                 baseStyle.fontWeight = 400;
                                 baseStyle.fontStyle = 'italic';
                                 baseStyle.letterSpacing = '2px';
