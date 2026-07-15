@@ -1197,16 +1197,31 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
              <div className={cn("flex-1 relative overflow-x-auto overflow-y-hidden scrollbar-thin", bgPanel)}>
                 <div style={{ width: `${Math.max((videoDuration || 15) * zoom, 100)}px`, minWidth: '100%', height: '100%', position: 'relative' }}>
                    {/* Time Ruler */}
-                   <div className={cn("h-6 border-b sticky top-0 z-0 flex", borderCol, bgSidebar)}>
-                      {Array.from({length: Math.ceil((videoDuration || 15) / (zoom > 50 ? 1 : zoom > 20 ? 5 : 10))}).map((_, i) => {
-                         const secondsPerTick = zoom > 50 ? 1 : zoom > 20 ? 5 : 10;
-                         const sec = i * secondsPerTick;
-                         return (
-                            <div key={i} style={{ width: `${zoom * secondsPerTick}px` }} className={cn("border-l h-full relative shrink-0", borderCol)}>
-                               <span className={cn("absolute left-1 top-1 text-[8px]", textMuted)}>{sec}s</span>
-                            </div>
-                         );
-                      })}
+                   <div className={cn("h-7 border-b sticky top-0 z-0 flex overflow-hidden", borderCol, bgPanel)}>
+                      {Array.from({length: Math.ceil((videoDuration || 15) + 1)}).map((_, i) => (
+                         <div key={i} style={{ width: `${zoom}px` }} className="h-full relative shrink-0">
+                            {/* Main tick */}
+                            <div className={cn("absolute bottom-0 left-0 w-px h-3 bg-gray-400 dark:bg-gray-600")} />
+                            
+                            {/* Sub ticks based on zoom level */}
+                            {zoom > 20 && (
+                               <div className={cn("absolute bottom-0 left-1/2 w-px h-1.5 bg-gray-300 dark:bg-gray-700")} />
+                            )}
+                            {zoom > 50 && (
+                               <>
+                                  <div className={cn("absolute bottom-0 left-1/4 w-px h-1 bg-gray-200 dark:bg-gray-800")} />
+                                  <div className={cn("absolute bottom-0 left-3/4 w-px h-1 bg-gray-200 dark:bg-gray-800")} />
+                               </>
+                            )}
+
+                            {/* Label */}
+                            {(i % (zoom > 50 ? 1 : zoom > 20 ? 2 : 5) === 0) && (
+                               <span className={cn("absolute left-1.5 top-0.5 text-[9px] font-mono tracking-tight", textMuted)}>
+                                  {new Date(i * 1000).toISOString().substr(14, 5)}
+                               </span>
+                            )}
+                         </div>
+                      ))}
                    </div>
                    
                    {/* Tracks Content */}
@@ -1227,8 +1242,14 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                         }}>
                   
                   {/* Playhead */}
-                  <div className="absolute top-0 bottom-0 w-px bg-red-500 z-30 pointer-events-none" style={{ left: `${currentTime * zoom}px` }}>
-                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-3 h-3 bg-red-500 transform rotate-45 cursor-ew-resize pointer-events-auto" />
+                  <div 
+                     className="absolute top-0 bottom-0 w-[1.5px] bg-red-500 z-30 pointer-events-none drop-shadow-md" 
+                     style={{ 
+                        left: `${currentTime * zoom}px`, 
+                        transition: isPlaying ? 'left 0.25s linear' : 'none' 
+                     }}
+                  >
+                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-red-500 rounded-sm transform rotate-45 cursor-ew-resize pointer-events-auto border border-red-600 shadow-sm" />
                   </div>
                   
                   {tracks.map(t => (
