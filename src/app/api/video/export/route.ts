@@ -243,7 +243,7 @@ export async function POST(req: Request) {
     if (captions.length > 0) {
         const assContent = generateAssFile(captions, targetWidth, targetHeight);
         await writeFile(tempFilterPath, assContent, 'utf-8');
-        const fontsDir = join(process.cwd(), 'public', 'fonts').replace(/\\/g, '/');
+        const fontsDir = join(process.cwd(), 'public', 'fonts').replace(/\\/g, '/').replace(/:/g, '\\:');
         const safeAssPath = tempFilterPath.replace(/\\/g, '/').replace(/:/g, '\\:');
         vfStr += `,subtitles='${safeAssPath}':fontsdir='${fontsDir}'`;
     }
