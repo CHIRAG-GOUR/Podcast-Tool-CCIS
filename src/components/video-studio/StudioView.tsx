@@ -14,6 +14,24 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+const CopyButton = ({ text }: { text: string }) => {
+   const [copied, setCopied] = useState(false);
+   return (
+       <button 
+           onClick={() => {
+               navigator.clipboard.writeText(text);
+               setCopied(true);
+               setTimeout(() => setCopied(false), 2000);
+           }}
+           className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors ml-1 inline-flex items-center justify-center"
+           title="Copy to clipboard"
+       >
+           {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-gray-400 hover:text-[#6366F1]" />}
+       </button>
+   );
+};
+
+
 export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -508,24 +526,36 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                        {aiClips.length > 0 ? (
                            <div className="space-y-4">
                               {aiClips.map((clip: any, i: number) => (
-                                 <div key={i} className={cn("w-full p-3 rounded-lg border text-left flex flex-col gap-2", bgPanel, borderCol)}>
+                                 <div key={i} className={cn("w-full p-3 rounded-lg border text-left flex flex-col gap-3", bgPanel, borderCol)}>
                                     <div>
-                                        <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Viral Title</span>
+                                        <div className="flex items-center justify-between mb-1">
+                                           <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Viral Title</span>
+                                           <CopyButton text={clip.title} />
+                                        </div>
                                         <p className={cn("text-xs font-semibold", textHighlight)}>{clip.title}</p>
                                     </div>
                                     <div>
-                                        <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>The Hook</span>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>The Hook</span>
+                                            <CopyButton text={clip.reason} />
+                                        </div>
                                         <p className={cn("text-[10px]", textMuted)}>{clip.reason}</p>
                                     </div>
                                     {clip.instagram_caption && (
                                         <div>
-                                            <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Social Caption</span>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Social Caption</span>
+                                                <CopyButton text={clip.instagram_caption} />
+                                            </div>
                                             <p className={cn("text-[10px] whitespace-pre-wrap", textMuted)}>{clip.instagram_caption}</p>
                                         </div>
                                     )}
                                     {clip.hashtags && (
                                         <div>
-                                            <span className={cn("text-[9px] font-bold uppercase tracking-wider text-[#6366F1]")}>Hashtags</span>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className={cn("text-[9px] font-bold uppercase tracking-wider text-[#6366F1]")}>Hashtags</span>
+                                                <CopyButton text={clip.hashtags} />
+                                            </div>
                                             <p className={cn("text-[10px] font-semibold text-[#6366F1]")}>{clip.hashtags}</p>
                                         </div>
                                     )}
@@ -541,23 +571,55 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                        <div className="w-full h-px bg-gray-200 dark:bg-gray-800 my-4" />
 
                        <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Video Effects</h3>
-                       <div className="grid grid-cols-2 gap-2">
-                          <button className={cn("p-3 rounded border text-center transition-colors opacity-50 cursor-not-allowed", bgMain, borderCol)}>
-                             <div className="w-full h-12 bg-gray-200 dark:bg-gray-800 rounded mb-2 flex items-center justify-center"><ZoomIn className="w-5 h-5 text-gray-500"/></div>
-                             <span className={cn("text-[10px] font-semibold", textHighlight)}>Auto Zoom</span>
-                          </button>
-                          <button className={cn("p-3 rounded border text-center transition-colors opacity-50 cursor-not-allowed", bgMain, borderCol)}>
-                             <div className="w-full h-12 bg-gray-200 dark:bg-gray-800 rounded mb-2 flex items-center justify-center"><Film className="w-5 h-5 text-gray-500"/></div>
-                             <span className={cn("text-[10px] font-semibold", textHighlight)}>B-Roll</span>
-                          </button>
-                          <button className={cn("p-3 rounded border text-center transition-colors opacity-50 cursor-not-allowed", bgMain, borderCol)}>
-                             <div className="w-full h-12 bg-gray-200 dark:bg-gray-800 rounded mb-2 flex items-center justify-center"><Volume2 className="w-5 h-5 text-gray-500"/></div>
-                             <span className={cn("text-[10px] font-semibold", textHighlight)}>Sound FX</span>
-                          </button>
-                          <button className={cn("p-3 rounded border text-center transition-colors opacity-50 cursor-not-allowed", bgMain, borderCol)}>
-                             <div className="w-full h-12 bg-gray-200 dark:bg-gray-800 rounded mb-2 flex items-center justify-center"><Sparkles className="w-5 h-5 text-gray-500"/></div>
-                             <span className={cn("text-[10px] font-semibold", textHighlight)}>Color Grade</span>
-                          </button>
+                       <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-[400px] pr-1 scrollbar-thin">
+                          {[
+                              { id: 'reset', name: 'Reset All', icon: RotateCcw, filter: 'none', transform: { scale: 1, scaleX: 1, scaleY: 1 } },
+                              { id: 'zoom', name: 'Zoom In', icon: ZoomIn, transform: { scale: 1.2 } },
+                              { id: 'zoom-out', name: 'Zoom Out', icon: ZoomOut, transform: { scale: 0.8 } },
+                              { id: 'mirror', name: 'Mirror Flip', icon: SplitSquareHorizontal, transform: { scaleX: -1 } },
+                              { id: 'flip-v', name: 'Flip Vert', icon: Move, transform: { scaleY: -1 } },
+                              { id: 'cinematic', name: 'Cinematic', icon: Film, filter: 'brightness(0.9) contrast(1.2) saturate(1.3)' },
+                              { id: 'vintage', name: 'Vintage', icon: ImageIcon, filter: 'sepia(0.6) contrast(1.1)' },
+                              { id: 'bw', name: 'B & W', icon: Contrast, filter: 'grayscale(100%)' },
+                              { id: 'cyberpunk', name: 'Cyberpunk', icon: Zap, filter: 'hue-rotate(90deg) saturate(1.5) contrast(1.1)' },
+                              { id: 'warm', name: 'Warm Tone', icon: Sun, filter: 'sepia(0.3) saturate(1.2)' },
+                              { id: 'cool', name: 'Cool Tone', icon: Moon, filter: 'hue-rotate(-20deg) saturate(1.1)' },
+                              { id: 'high-contrast', name: 'High Contrast', icon: Contrast, filter: 'contrast(1.5)' },
+                              { id: 'bright', name: 'Brighten', icon: Sun, filter: 'brightness(1.2)' },
+                              { id: 'dark', name: 'Darken', icon: Moon, filter: 'brightness(0.8)' },
+                              { id: 'blur', name: 'Blur Focus', icon: EyeOff, filter: 'blur(4px)' },
+                              { id: 'invert', name: 'Invert', icon: Sparkles, filter: 'invert(100%)' },
+                              { id: 'saturate', name: 'Super Color', icon: Flame, filter: 'saturate(2)' },
+                              { id: 'b-roll', name: 'B-Roll FX', icon: Film, filter: 'grayscale(50%) brightness(0.7)' },
+                          ].map(effect => {
+                              return (
+                                  <button 
+                                      key={effect.id}
+                                      onClick={() => {
+                                          setProjectClips(prev => prev.map(c => {
+                                              if (c.type === 'video') {
+                                                  return {
+                                                      ...c,
+                                                      style: {
+                                                          ...c.style,
+                                                          filters: effect.filter !== undefined ? effect.filter : (c.style?.filters || 'none'),
+                                                      },
+                                                      transform: {
+                                                          ...(c.transform || { scale: 1, scaleX: 1, scaleY: 1 }),
+                                                          ...(effect.transform || {})
+                                                      }
+                                                  }
+                                              }
+                                              return c;
+                                          }));
+                                      }}
+                                      className={cn("p-2 rounded border text-center transition-colors flex flex-col items-center justify-center gap-1", bgMain, borderCol, "hover:border-[#6366F1] hover:bg-[#6366F1]/10")}
+                                  >
+                                     <effect.icon className={cn("w-4 h-4 mb-1", textMuted, "group-hover:text-[#6366F1]")}/>
+                                     <span className={cn("text-[9px] font-semibold truncate w-full", textHighlight)}>{effect.name}</span>
+                                  </button>
+                              );
+                          })}
                        </div>
                     </div>
                  )}
@@ -579,7 +641,15 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                   <video 
                     ref={videoRef}
                     src={fileUrl}
-                    className="w-full h-full object-contain"
+                    style={{
+                       filter: projectClips.find(c => c.type === 'video')?.style?.filters || 'none',
+                       transform: `
+                         scale(${projectClips.find(c => c.type === 'video')?.transform?.scale || 1}) 
+                         scaleX(${projectClips.find(c => c.type === 'video')?.transform?.scaleX || 1})
+                         scaleY(${projectClips.find(c => c.type === 'video')?.transform?.scaleY || 1})
+                       `
+                    }}
+                    className="w-full h-full object-contain transition-all duration-300"
                     onTimeUpdate={(e) => {
                        const mainClip = projectClips.find(c => c.type === 'video');
                        const base = mainClip?.mediaStart || 0;
