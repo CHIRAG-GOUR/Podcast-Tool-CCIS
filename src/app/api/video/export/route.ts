@@ -28,68 +28,145 @@ function wrapText(text: string, maxChars: number) {
     return lines.join('\n');
 }
 
-function generateFilterGraph(captions: any[], styleParams: any, videoWidth: number, videoHeight: number, canvasW: number, canvasH: number) {
-    // Scale the font size relative to the user's zoom/scale transform.
-    // If the canvas is 500px tall and video is 1920px tall, font needs to be scaled up.
-    // The relative height ratio is used to make sure font size matches the screen accurately.
-    const baseFontSize = styleParams.fontSize || 48;
-    const userScale = (styleParams.transform?.scale || 100) / 100;
+function formatAssTime(seconds: number) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    const cs = Math.floor((seconds % 1) * 100);
+    return `${h}:${m.toString().padStart(2, '0')}:${Math.floor(s).toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
+}
+
+function generateAssFile(captions: any[], videoWidth: number, videoHeight: number, preset: string = 'hormozi') {
+    const fontSize = Math.round(videoHeight * 0.05);
     
-    // Default canvas height if not provided (fallback)
-    const cw = canvasW || videoWidth;
-    const ch = canvasH || videoHeight;
-    const renderScale = videoHeight / ch;
-
-    // Standard YouTube CC styling: Responsive size based on video height (~4.5% of 1080p is 48px)
-    const fontSize = Math.round(videoHeight * 0.045);
+    let fontName = 'Inter';
+    let baseFontSize = fontSize;
+    // Format: Primary, Secondary, Outline, Back
+    let colors = '&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000';
+    // Format: Bold, Italic, BorderStyle, Outline, Shadow, Spacing
+    let styleProps = '-1,0,1,0,8,0';
     
-    // Drawtext colors (Classic YouTube CC)
-    const fontColor = 'white';
-    const boxColor = 'black@0.75';
+    let activeColor = '&H0000FFFF&'; // Yellow BGR
+    let inactiveColor = '&H00FFFFFF&'; // White BGR
+    let activeScale = false;
 
-    // Calculate absolute positions
-    // Framer motion x/y are relative to the center in DOM space.
-    // We scale them up to FFMPEG space by multiplying by renderScale.
-    const domOffsetX = styleParams.transform?.x || 0;
-    const domOffsetY = styleParams.transform?.y || 0;
+    if (preset === 'hormozi') {
+        baseFontSize = fontSize;
+        colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000';
+        styleProps = '-1,0,1,0,8,0'; // Shadow=8
+        activeColor = '&H0000FFFF&';
+        activeScale = true;
+    } else if (preset === 'beast') {
+        fontName = 'Impact';
+        baseFontSize = Math.round(fontSize * 1.2);
+        colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000';
+        styleProps = '-1,-1,1,6,4,0'; // Outline=6, Shadow=4, Italic=-1
+        activeColor = '&H00FFFF00&'; // Cyan
+        activeScale = true;
+    } else if (preset === 'youtube') {
+        fontName = 'Arial';
+        baseFontSize = Math.round(fontSize * 0.6);
+        colors = '&H00FFFFFF,&H000000FF,&H00000000,&HB3000000';
+        styleProps = '-1,0,3,0,0,0'; // BorderStyle=3 (Opaque box)
+        activeColor = '&H00FFFFFF&';
+        inactiveColor = '&H00FFFFFF&';
+    } else if (preset === 'tiktok') {
+        fontName = 'Inter';
+        baseFontSize = Math.round(fontSize * 0.9);
+        colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000';
+        styleProps = '-1,0,1,3,0,0'; // Outline=3
+        activeColor = '&H000000FF&'; // Red
+    } else if (preset === 'netflix') {
+        fontName = 'Arial';
+        baseFontSize = Math.round(fontSize * 0.8);
+        colors = '&H0000FFFF,&H000000FF,&H00000000,&H00000000';
+        styleProps = '-1,0,1,0,2,0'; // Shadow=2
+        activeColor = '&H0000FFFF&';
+        inactiveColor = '&H0000FFFF&';
+    } else if (preset === 'ali') {
+        fontName = 'Inter';
+        baseFontSize = Math.round(fontSize * 0.9);
+        colors = '&H00FFFFFF,&H000000FF,&H00000000,&H00000000';
+        styleProps = '-1,0,1,0,5,0'; // Shadow=5
+        activeColor = '&H0000A5FF&'; // Orange
+        activeScale = true;
+    } else if (preset === 'neon') {
+        fontName = 'Inter';
+        baseFontSize = fontSize;
+        colors = '&H00FFFFFF,&H000000FF,&H00FF00FF,&H00000000';
+        styleProps = '-1,-1,1,5,0,0'; // Magenta Outline
+        activeColor = '&H00FFFF00&'; // Cyan
+    } else if (preset === 'minimalist') {
+        fontName = 'Inter';
+        baseFontSize = fontSize;
+        colors = '&H00D3D3D3,&H000000FF,&H00000000,&H00000000';
+        styleProps = '0,0,1,0,0,0'; // No bold, No shadow
+        inactiveColor = '&H00D3D3D3&'; // LightGray
+        activeColor = '&H00000000&'; // Black
+    } else if (preset === 'typewriter') {
+        fontName = 'Courier New';
+        baseFontSize = Math.round(fontSize * 0.7);
+        colors = '&H00346516,&H000000FF,&H00000000,&HB3000000';
+        styleProps = '-1,0,3,1,0,0';
+        inactiveColor = '&H00346516&';
+        activeColor = '&H005EC522&';
+    } else if (preset === 'cinematic') {
+        fontName = 'Georgia';
+        baseFontSize = Math.round(fontSize * 0.8);
+        colors = '&H80FFFFFF,&H000000FF,&H00000000,&H00000000'; // Semi-transparent white
+        styleProps = '0,-1,1,0,4,2'; // Shadow=4, Spacing=2, Italic=-1
+        inactiveColor = '&H80FFFFFF&';
+        activeColor = '&H00FFFFFF&'; // Solid white
+    }
     
-    const rawOffsetX = Math.round(domOffsetX * renderScale);
-    const rawOffsetY = Math.round(domOffsetY * renderScale);
+    let ass = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${videoWidth}
+PlayResY: ${videoHeight}
 
-    // Hard-clamp the offsets so they physically CANNOT push the text off-screen
-    // Even if DOM state goes wild, the text stays within the video boundaries.
-    const maxOffsetX = (videoWidth / 2) - 50;
-    const offsetX = Math.max(Math.min(rawOffsetX, maxOffsetX), -maxOffsetX);
-    
-    const maxOffsetY = (videoHeight / 2) - 80;
-    const offsetY = Math.max(Math.min(rawOffsetY, maxOffsetY), -maxOffsetY);
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Spacing, Angle, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Captions,${fontName},${baseFontSize},${colors},${styleProps},0,5,20,20,0,1
 
-    let filterStr = `scale=${videoWidth}:${videoHeight}:force_original_aspect_ratio=increase,crop=${videoWidth}:${videoHeight}`;
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
 
-    // Use an absolute path to a bundled font for Vercel support
-    // Download a font like 'Inter-Bold.ttf' and place it in 'public/fonts/'
-    const fontPath = join(process.cwd(), 'public', 'fonts', 'Inter-Bold.ttf').replace(/\\/g, '/').replace(/:/g, '\\:');
+    captions.forEach(chunk => {
+        const words = chunk.words || [];
+        
+        if (words.length === 0) {
+            const start = formatAssTime(chunk.start);
+            const end = formatAssTime(chunk.end);
+            ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${chunk.text}
+`;
+            return;
+        }
 
-    captions.forEach(cap => {
-        // FFMPEG filtergraphs split on commas and colons.
-        // We replace single quotes with smart quotes to avoid FFMPEG quoting hell.
-        // Aggressively strip trailing spaces that can corrupt FFMPEG text_w calculations
-        let safeText = cap.text
-            .replace(/\s+$/g, '')
-            .replace(/^\s+/g, '')
-            .replace(/'/g, "\u2019")
-            .replace(/:/g, "\\:")
-            .replace(/,/g, "\\,")
-            .replace(/\n/g, ' ');
+        for (let i = 0; i < words.length; i++) {
+            const w = words[i];
+            const start = formatAssTime(w.start);
+            const end = formatAssTime(w.end);
             
-        // Wrap text at ~45 characters (Standard YouTube CC width)
-        safeText = wrapText(safeText, 45);
-            
-        // Force FFMPEG to always center exactly, and perfectly place at bottom 8% safe area
-        filterStr += `,\ndrawtext=fontfile='${fontPath}':text='${safeText}':enable='between(t\\,${cap.start}\\,${cap.end})':fontsize=${fontSize}:fontcolor=${fontColor}:shadowcolor=black@0.9:shadowx=2:shadowy=2:box=1:boxcolor=${boxColor}:boxborderw=8:x=(${videoWidth}-text_w)/2:y=${videoHeight}-text_h-(${videoHeight}*0.08)`;
+            let sentence = "";
+            for (let j = 0; j < words.length; j++) {
+                const cw = words[j];
+                if (j === i) {
+                    if (activeScale) {
+                        sentence += `{\fscx115\fscy115\c${activeColor}}${cw.word}{\fscx100\fscy100\c${inactiveColor}} `;
+                    } else {
+                        sentence += `{\c${activeColor}}${cw.word}{\c${inactiveColor}} `;
+                    }
+                } else {
+                    sentence += `${cw.word} `;
+                }
+            }
+            ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${sentence.trim()}
+`;
+        }
     });
 
-    return filterStr;
+    return ass;
 }
 
 export async function POST(req: Request) {
@@ -143,21 +220,27 @@ export async function POST(req: Request) {
     await writeFile(tempVideoPath, buffer);
     console.log(`Saved temp video to ${tempVideoPath} for export with ratio ${targetWidth}x${targetHeight}`);
 
-    const filterContent = generateFilterGraph(captions, style, targetWidth, targetHeight, canvasW, canvasH);
-    await writeFile(tempFilterPath, filterContent, 'utf-8');
+    let vfStr = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}`;
+
+    if (captions.length > 0) {
+        const assContent = generateAssFile(captions, targetWidth, targetHeight);
+        await writeFile(tempFilterPath, assContent, 'utf-8');
+        const fontsDir = join(process.cwd(), 'public', 'fonts').replace(/\\/g, '/');
+        const safeAssPath = tempFilterPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+        vfStr += `,subtitles='${safeAssPath}':fontsdir='${fontsDir}'`;
+    }
 
     const startNum = parseFloat(startTime) || 0;
     const endNum = parseFloat(endTime) || 0;
     const duration = endNum - startNum;
 
     // Build FFMPEG command
-    // Use the absolute path tempFilterPath for the filter_complex_script so ffmpeg doesn't fail.
     const ffmpegCmd = [
         `"${ffmpegInstaller.path}" -y`,
         `-ss ${startNum}`,
         `-t ${duration}`,
         `-i "${tempVideoPath}"`,
-        `-filter_complex_script "${tempFilterPath}"`,
+        `-vf "${vfStr}"`,
         `-c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k`,
         `"${tempOutputPath}"`
     ].join(' ');

@@ -15,6 +15,27 @@ export const maxDuration = 300;
 
 export async function POST(req: Request) {
   try {
+    // --- SECURITY GUARD ---
+    const authHeader = req.headers.get('authorization');
+    const origin = req.headers.get('origin') || '';
+    const clientIp = req.headers.get('x-forwarded-for') || 'Unknown IP';
+    const userAgent = req.headers.get('user-agent') || 'Unknown User Agent';
+    
+    // 1. Token Check (from Frontend)
+    const isValidToken = authHeader === `Bearer ${process.env.API_SECRET_TOKEN}`;
+    
+    // 2. Origin Check (Prevent CSRF / external bots)
+    // Only allow if no origin (cURL with token) OR if it matches our expected domains
+    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
+    const isVercel = origin.includes('.vercel.app') || origin.includes('skillizee');
+    const isValidOrigin = !origin || isLocal || isVercel;
+
+    if (!isValidToken || !isValidOrigin) {
+      console.warn(`[SECURITY REJECTED] Bot or unauthorized access attempt. IP: ${clientIp}, Origin: ${origin}, UA: ${userAgent}`);
+      return NextResponse.json({ error: 'Unauthorized access. Bot traffic rejected.' }, { status: 403 });
+    }
+    // ----------------------
+
     const formData = await req.formData();
     const file = formData.get('video') as File;
     const startTime = formData.get('start_time') as string;
@@ -45,6 +66,27 @@ export async function POST(req: Request) {
     if (startTime && endTime) {
       console.log(`Extracting audio slice from ${startTime}s to ${endTime}s...`);
       try {
+    // --- SECURITY GUARD ---
+    const authHeader = req.headers.get('authorization');
+    const origin = req.headers.get('origin') || '';
+    const clientIp = req.headers.get('x-forwarded-for') || 'Unknown IP';
+    const userAgent = req.headers.get('user-agent') || 'Unknown User Agent';
+    
+    // 1. Token Check (from Frontend)
+    const isValidToken = authHeader === `Bearer ${process.env.API_SECRET_TOKEN}`;
+    
+    // 2. Origin Check (Prevent CSRF / external bots)
+    // Only allow if no origin (cURL with token) OR if it matches our expected domains
+    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
+    const isVercel = origin.includes('.vercel.app') || origin.includes('skillizee');
+    const isValidOrigin = !origin || isLocal || isVercel;
+
+    if (!isValidToken || !isValidOrigin) {
+      console.warn(`[SECURITY REJECTED] Bot or unauthorized access attempt. IP: ${clientIp}, Origin: ${origin}, UA: ${userAgent}`);
+      return NextResponse.json({ error: 'Unauthorized access. Bot traffic rejected.' }, { status: 403 });
+    }
+    // ----------------------
+
         // -vn removes video. -c:a aac is universally supported by ffmpeg builds. We save as .mp4 container for audio to ensure compatibility if mp3 fails.
         // Wait, Gemini File API supports mp3, wav, aac, m4a. We will use aac in an m4a container.
         const safeAudioPath = tempVideoPath + '.m4a';
@@ -87,8 +129,21 @@ export async function POST(req: Request) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
     const duration = parseFloat(endTime) - parseFloat(startTime);
-    const prompt = "You are a highly accurate transcription assistant. Your task is to transcribe the speech in this audio.\nCRITICAL INSTRUCTION: Break the transcription into logical sentence-level subtitle chunks (roughly 5-10 words each) suitable for classic YouTube-style full sentence captions.\n\nEach object must have:\n- \"text\": The short text phrase spoken.\n- \"start\": The exact start time of this phrase in seconds (float) relative to the start of the audio file.\n- \"end\": The exact end time of this phrase in seconds (float) relative to the start of the audio file.\n\nReturn ONLY a valid JSON array of these objects without any markdown formatting, backticks, or extra text.";
+    const prompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this audio.
+CRITICAL INSTRUCTION: Break the transcription into short phrases (3-5 words) suitable for fast-paced Captions.ai style videos.
+For each phrase, you MUST also provide an array of the exact individual words spoken, with word-level timestamps.
 
+Return a JSON array of phrase objects. Each object must have:
+- "text": The full phrase spoken.
+- "start": Phrase start time (float, seconds).
+- "end": Phrase end time (float, seconds).
+- "words": An array of objects, where each object has:
+    - "word": The individual word.
+    - "start": The exact start time of this word.
+    - "end": The exact end time of this word.
+
+Return ONLY valid JSON without markdown formatting.`;
+    
     const result = await model.generateContent([
       {
         fileData: {
@@ -105,6 +160,27 @@ export async function POST(req: Request) {
 
     let parsedCaptions = [];
     try {
+    // --- SECURITY GUARD ---
+    const authHeader = req.headers.get('authorization');
+    const origin = req.headers.get('origin') || '';
+    const clientIp = req.headers.get('x-forwarded-for') || 'Unknown IP';
+    const userAgent = req.headers.get('user-agent') || 'Unknown User Agent';
+    
+    // 1. Token Check (from Frontend)
+    const isValidToken = authHeader === `Bearer ${process.env.API_SECRET_TOKEN}`;
+    
+    // 2. Origin Check (Prevent CSRF / external bots)
+    // Only allow if no origin (cURL with token) OR if it matches our expected domains
+    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
+    const isVercel = origin.includes('.vercel.app') || origin.includes('skillizee');
+    const isValidOrigin = !origin || isLocal || isVercel;
+
+    if (!isValidToken || !isValidOrigin) {
+      console.warn(`[SECURITY REJECTED] Bot or unauthorized access attempt. IP: ${clientIp}, Origin: ${origin}, UA: ${userAgent}`);
+      return NextResponse.json({ error: 'Unauthorized access. Bot traffic rejected.' }, { status: 403 });
+    }
+    // ----------------------
+
       const cleaned = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
       parsedCaptions = JSON.parse(cleaned);
     } catch (e) {

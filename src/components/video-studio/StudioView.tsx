@@ -430,6 +430,9 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                    formData.append("end_time", mediaEnd.toString());
                                    
                                    const res = await fetch("/api/video/transcribe", {
+                                     headers: {
+                                       "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}`
+                                     },
                                      method: "POST",
                                      body: formData,
                                    });
@@ -461,7 +464,12 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                       chunks: generated.map((c: any) => ({
                                          start: targetClip.start + (isLocal ? (c.start || 0) : Math.max(0, (c.start || 0) - mediaStart)),
                                          end: targetClip.start + (isLocal ? (c.end || 2) : Math.max(0, (c.end || 2) - mediaStart)),
-                                         text: c.text
+                                         text: c.text,
+                                         words: c.words ? c.words.map((w: any) => ({
+                                            word: w.word,
+                                            start: targetClip.start + (isLocal ? (w.start || 0) : Math.max(0, (w.start || 0) - mediaStart)),
+                                            end: targetClip.start + (isLocal ? (w.end || 2) : Math.max(0, (w.end || 2) - mediaStart))
+                                         })) : []
                                       })),
                                       transform: { x: 0, y: (previewContainerRef.current?.clientHeight || 400) * 0.35, width: 600, height: 60, scale: 100, rotation: 0 },
                                       style: { fontFamily: 'Inter', fontSize: 48, preset: 'dark' }
@@ -540,8 +548,9 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                    let displayText = clip.text || "(Caption Placeholder)";
                    let isVisible = true;
                    
+                   let activeChunk: any = null;
                    if (clip.chunks && clip.chunks.length > 0) {
-                      const activeChunk = clip.chunks.find((ch: any) => currentTime >= ch.start && currentTime <= ch.end);
+                      activeChunk = clip.chunks.find((ch: any) => currentTime >= ch.start && currentTime <= ch.end);
                       if (activeChunk) {
                           displayText = activeChunk.text;
                       } else {
@@ -569,28 +578,130 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                        isDraggable={clip.type !== 'caption'}
                        isResizable={clip.type !== 'caption'}
                      >
-                       <div 
-                          style={{
-                             fontFamily: clip.style?.fontFamily || 'Inter',
-                             fontSize: 'clamp(16px, 2.5vw, 24px)', // YouTube-like responsive size for UI
-                             fontWeight: 600,
-                             color: 'white',
-                             backgroundColor: 'rgba(0,0,0,0.75)',
-                             textAlign: 'center',
-                             whiteSpace: 'pre-wrap',
-                             maxWidth: '90%',
-                             display: 'flex',
-                             alignItems: 'center',
-                             justifyContent: 'center',
-                             padding: '4px 12px',
-                             borderRadius: '4px',
-                             opacity: isVisible ? 1 : (isSelected ? 0.5 : 0),
-                             boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                             lineHeight: '1.4'
-                          }}
-                       >
-                          {displayText || (isSelected ? "(Silence)" : "")}
-                       </div>
+                       
+                        {(() => {
+                            const preset = clip.style?.preset || 'hormozi';
+                            
+                            // Base text styles mapped from preset
+                            let baseStyle: React.CSSProperties = {
+                                fontFamily: clip.style?.fontFamily || 'Inter',
+                                textAlign: 'center',
+                                whiteSpace: 'pre-wrap',
+                                maxWidth: '90%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '10px',
+                                opacity: isVisible ? 1 : (isSelected ? 0.5 : 0),
+                                lineHeight: '1.2'
+                            };
+
+                            let activeColor = '#FFD700'; // Default Yellow
+                            let inactiveColor = 'white';
+                            let activeScale = 1.1;
+
+                            if (preset === 'hormozi') {
+                                baseStyle.fontSize = 'clamp(24px, 4vw, 48px)';
+                                baseStyle.fontWeight = 900;
+                                baseStyle.textShadow = '0px 4px 12px rgba(0,0,0,0.8), 0px 2px 4px rgba(0,0,0,1)';
+                                baseStyle.textTransform = 'uppercase';
+                                activeColor = '#FFD700'; // Yellow
+                            } else if (preset === 'beast') {
+                                baseStyle.fontFamily = 'Impact, sans-serif';
+                                baseStyle.fontSize = 'clamp(28px, 5vw, 54px)';
+                                baseStyle.fontWeight = 900;
+                                baseStyle.WebkitTextStroke = '2px black';
+                                baseStyle.textShadow = '4px 4px 0px black';
+                                baseStyle.textTransform = 'uppercase';
+                                baseStyle.fontStyle = 'italic';
+                                activeColor = '#00FFFF'; // Cyan
+                            } else if (preset === 'youtube') {
+                                baseStyle.fontSize = 'clamp(16px, 2.5vw, 24px)';
+                                baseStyle.fontWeight = 600;
+                                baseStyle.backgroundColor = 'rgba(0,0,0,0.75)';
+                                baseStyle.borderRadius = '4px';
+                                baseStyle.padding = '4px 12px';
+                                activeColor = 'white';
+                                inactiveColor = 'white';
+                                activeScale = 1;
+                            } else if (preset === 'tiktok') {
+                                baseStyle.fontSize = 'clamp(22px, 3.5vw, 42px)';
+                                baseStyle.fontWeight = 800;
+                                baseStyle.WebkitTextStroke = '1.5px black';
+                                baseStyle.textShadow = '1px 1px 2px black';
+                                activeColor = '#FF0050'; // TikTok Red
+                            } else if (preset === 'netflix') {
+                                baseStyle.fontSize = 'clamp(20px, 3vw, 36px)';
+                                baseStyle.fontWeight = 600;
+                                baseStyle.textShadow = '0px 2px 4px rgba(0,0,0,0.8)';
+                                inactiveColor = '#FFD700'; // Yellow text
+                                activeColor = '#FFD700';
+                                activeScale = 1;
+                            } else if (preset === 'ali') {
+                                baseStyle.fontSize = 'clamp(22px, 3.5vw, 40px)';
+                                baseStyle.fontWeight = 700;
+                                baseStyle.textShadow = '0px 2px 8px rgba(0,0,0,0.5)';
+                                activeColor = '#FF7A00'; // Orange
+                            } else if (preset === 'neon') {
+                                baseStyle.fontSize = 'clamp(24px, 4vw, 48px)';
+                                baseStyle.fontWeight = 800;
+                                baseStyle.fontStyle = 'italic';
+                                baseStyle.textShadow = '0 0 10px #ff00ff, 0 0 20px #ff00ff';
+                                inactiveColor = '#ffffff';
+                                activeColor = '#00ffff'; // Cyan active
+                            } else if (preset === 'minimalist') {
+                                baseStyle.fontSize = 'clamp(24px, 4vw, 48px)';
+                                baseStyle.fontWeight = 300;
+                                inactiveColor = '#9CA3AF'; // Gray
+                                activeColor = '#111827'; // Black
+                                if (theme === 'dark') activeColor = '#ffffff';
+                            } else if (preset === 'typewriter') {
+                                baseStyle.fontFamily = 'monospace';
+                                baseStyle.fontSize = 'clamp(18px, 3vw, 32px)';
+                                baseStyle.backgroundColor = 'rgba(0,0,0,0.9)';
+                                baseStyle.border = '1px solid #22c55e';
+                                baseStyle.padding = '8px 16px';
+                                inactiveColor = '#166534';
+                                activeColor = '#22c55e';
+                                activeScale = 1;
+                            } else if (preset === 'cinematic') {
+                                baseStyle.fontFamily = 'Georgia, serif';
+                                baseStyle.fontSize = 'clamp(18px, 3vw, 32px)';
+                                baseStyle.fontWeight = 400;
+                                baseStyle.fontStyle = 'italic';
+                                baseStyle.letterSpacing = '2px';
+                                baseStyle.textShadow = '0px 2px 8px rgba(0,0,0,0.8)';
+                                inactiveColor = 'rgba(255,255,255,0.5)';
+                                activeColor = 'white';
+                                activeScale = 1;
+                            }
+
+                            return (
+                                <div style={baseStyle}>
+                                    {activeChunk && activeChunk.words && activeChunk.words.length > 0 ? (
+                                        <div style={{ display: 'inline-flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
+                                            {activeChunk.words.map((w: any, idx: number) => {
+                                                const isActiveWord = currentTime >= w.start && currentTime <= w.end;
+                                                return (
+                                                    <span key={idx} style={{ 
+                                                        color: isActiveWord ? activeColor : inactiveColor, 
+                                                        transform: isActiveWord ? `scale(${activeScale})` : 'scale(1)',
+                                                        display: 'inline-block',
+                                                        transition: 'all 0.1s ease-in-out',
+                                                        WebkitTextStroke: isActiveWord && preset === 'tiktok' ? '1.5px black' : baseStyle.WebkitTextStroke
+                                                    }}>
+                                                        {w.word}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        displayText || (isSelected ? "(Silence)" : "")
+                                    )}
+                                </div>
+                            );
+                        })()}
+
                      </EditableCanvasNode>
                    );
                 })}
@@ -680,20 +791,35 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                            
                            <div className="space-y-2">
                               <label className={cn("text-[10px] uppercase font-bold", textMuted)}>Style Preset</label>
-                              <div className="grid grid-cols-2 gap-2">
-                                 <button 
-                                   onClick={() => updateActiveClipStyle({ preset: 'dark' })}
-                                   className={cn("p-2 text-xs rounded border text-center transition-colors font-bold", activeClip.style.preset === 'dark' || !activeClip.style.preset ? "bg-black text-white border-white" : "bg-gray-100 text-gray-500 border-gray-300")}
-                                 >
-                                    Dark (YouTube)
-                                 </button>
-                                 <button 
-                                   onClick={() => updateActiveClipStyle({ preset: 'light' })}
-                                   className={cn("p-2 text-xs rounded border text-center transition-colors font-bold", activeClip.style.preset === 'light' ? "bg-white text-black border-black" : "bg-gray-800 text-gray-400 border-gray-700")}
-                                 >
-                                    Light
-                                 </button>
-                              </div>
+                              
+<div className="grid grid-cols-2 gap-2">
+    {[
+        { id: 'hormozi', name: 'Captions.ai (Hormozi)' },
+        { id: 'beast', name: 'MrBeast' },
+        { id: 'youtube', name: 'YouTube CC' },
+        { id: 'tiktok', name: 'TikTok Default' },
+        { id: 'netflix', name: 'Netflix' },
+        { id: 'ali', name: 'Ali Abdaal' },
+        { id: 'neon', name: 'Neon Glow' },
+        { id: 'minimalist', name: 'Minimalist' },
+        { id: 'typewriter', name: 'Terminal' },
+        { id: 'cinematic', name: 'Cinematic' }
+    ].map(preset => (
+        <button 
+            key={preset.id}
+            onClick={() => updateActiveClipStyle({ preset: preset.id })}
+            className={cn(
+                "p-2 text-[10px] rounded border text-center transition-colors font-bold truncate",
+                (activeClip.style.preset === preset.id || (!activeClip.style.preset && preset.id === 'hormozi')) 
+                    ? "bg-[#6366F1] text-white border-[#6366F1]" 
+                    : (theme === 'dark' ? "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700" : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200")
+            )}
+        >
+            {preset.name}
+        </button>
+    ))}
+</div>
+
                            </div>
                            
                            <div className="space-y-2 mt-4">

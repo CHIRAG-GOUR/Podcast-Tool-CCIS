@@ -41,6 +41,9 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
         if (context) formData.append("context", context);
 
         const res = await fetch("/api/video/analyze", {
+          headers: {
+            "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}`
+          },
           method: "POST",
           body: formData,
         });
