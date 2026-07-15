@@ -581,6 +581,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                        
                         {(() => {
                             const preset = clip.style?.preset || 'hormozi';
+                            const baseFontSize = clip.style?.fontSize || 48;
                             
                             // Base text styles mapped from preset
                             let baseStyle: React.CSSProperties = {
@@ -601,14 +602,14 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                             let activeScale = 1.1;
 
                             if (preset === 'hormozi') {
-                                baseStyle.fontSize = 'clamp(24px, 4vw, 48px)';
+                                baseStyle.fontSize = `${baseFontSize}px`;
                                 baseStyle.fontWeight = 900;
                                 baseStyle.textShadow = '0px 4px 12px rgba(0,0,0,0.8), 0px 2px 4px rgba(0,0,0,1)';
                                 baseStyle.textTransform = 'uppercase';
                                 activeColor = '#FFD700'; // Yellow
                             } else if (preset === 'beast') {
                                 baseStyle.fontFamily = 'Impact, sans-serif';
-                                baseStyle.fontSize = 'clamp(28px, 5vw, 54px)';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 1.2)}px`;
                                 baseStyle.fontWeight = 900;
                                 baseStyle.WebkitTextStroke = '2px black';
                                 baseStyle.textShadow = '4px 4px 0px black';
@@ -616,7 +617,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 baseStyle.fontStyle = 'italic';
                                 activeColor = '#00FFFF'; // Cyan
                             } else if (preset === 'youtube') {
-                                baseStyle.fontSize = 'clamp(16px, 2.5vw, 24px)';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.6)}px`;
                                 baseStyle.fontWeight = 600;
                                 baseStyle.backgroundColor = 'rgba(0,0,0,0.75)';
                                 baseStyle.borderRadius = '4px';
@@ -625,39 +626,39 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 inactiveColor = 'white';
                                 activeScale = 1;
                             } else if (preset === 'tiktok') {
-                                baseStyle.fontSize = 'clamp(22px, 3.5vw, 42px)';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.9)}px`;
                                 baseStyle.fontWeight = 800;
                                 baseStyle.WebkitTextStroke = '1.5px black';
                                 baseStyle.textShadow = '1px 1px 2px black';
                                 activeColor = '#FF0050'; // TikTok Red
                             } else if (preset === 'netflix') {
-                                baseStyle.fontSize = 'clamp(20px, 3vw, 36px)';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.8)}px`;
                                 baseStyle.fontWeight = 600;
                                 baseStyle.textShadow = '0px 2px 4px rgba(0,0,0,0.8)';
                                 inactiveColor = '#FFD700'; // Yellow text
                                 activeColor = '#FFD700';
                                 activeScale = 1;
                             } else if (preset === 'ali') {
-                                baseStyle.fontSize = 'clamp(22px, 3.5vw, 40px)';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.9)}px`;
                                 baseStyle.fontWeight = 700;
                                 baseStyle.textShadow = '0px 2px 8px rgba(0,0,0,0.5)';
                                 activeColor = '#FF7A00'; // Orange
                             } else if (preset === 'neon') {
-                                baseStyle.fontSize = 'clamp(24px, 4vw, 48px)';
+                                baseStyle.fontSize = `${baseFontSize}px`;
                                 baseStyle.fontWeight = 800;
                                 baseStyle.fontStyle = 'italic';
                                 baseStyle.textShadow = '0 0 10px #ff00ff, 0 0 20px #ff00ff';
                                 inactiveColor = '#ffffff';
                                 activeColor = '#00ffff'; // Cyan active
                             } else if (preset === 'minimalist') {
-                                baseStyle.fontSize = 'clamp(24px, 4vw, 48px)';
+                                baseStyle.fontSize = `${baseFontSize}px`;
                                 baseStyle.fontWeight = 300;
                                 inactiveColor = '#9CA3AF'; // Gray
                                 activeColor = '#111827'; // Black
                                 if (theme === 'dark') activeColor = '#ffffff';
                             } else if (preset === 'typewriter') {
                                 baseStyle.fontFamily = 'monospace';
-                                baseStyle.fontSize = 'clamp(18px, 3vw, 32px)';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.7)}px`;
                                 baseStyle.backgroundColor = 'rgba(0,0,0,0.9)';
                                 baseStyle.border = '1px solid #22c55e';
                                 baseStyle.padding = '8px 16px';
@@ -666,7 +667,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 activeScale = 1;
                             } else if (preset === 'cinematic') {
                                 baseStyle.fontFamily = 'Georgia, serif';
-                                baseStyle.fontSize = 'clamp(18px, 3vw, 32px)';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.8)}px`;
                                 baseStyle.fontWeight = 400;
                                 baseStyle.fontStyle = 'italic';
                                 baseStyle.letterSpacing = '2px';

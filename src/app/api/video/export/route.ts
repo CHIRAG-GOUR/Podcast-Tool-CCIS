@@ -36,8 +36,11 @@ function formatAssTime(seconds: number) {
     return `${h}:${m.toString().padStart(2, '0')}:${Math.floor(s).toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
 }
 
-function generateAssFile(captions: any[], videoWidth: number, videoHeight: number, preset: string = 'hormozi') {
-    const fontSize = Math.round(videoHeight * 0.05);
+function generateAssFile(captions: any[], videoWidth: number, videoHeight: number, preset: string = 'hormozi', userFontSize: number = 48) {
+    // Instead of forcing 5% of height, we use the user's selected font size.
+    // If the video is much larger than standard 1080p height, we can scale it gently if desired,
+    // but the user specifically requested "same size as normal ones i think it was about 48px".
+    const fontSize = userFontSize || 48;
     
     let fontName = 'Inter';
     let baseFontSize = fontSize;
@@ -119,6 +122,7 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         activeColor = '&H00FFFFFF&'; // Solid white
     }
     
+    // IMPORTANT: Alignment is 2 (Bottom-Center). MarginV pushes it up from the bottom.
     let ass = `[Script Info]
 ScriptType: v4.00+
 PlayResX: ${videoWidth}
@@ -126,7 +130,7 @@ PlayResY: ${videoHeight}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Spacing, Angle, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Captions,${fontName},${baseFontSize},${colors},${styleProps},0,5,20,20,0,1
+Style: Captions,${fontName},${baseFontSize},${colors},${styleProps},0,2,20,20,${Math.round(videoHeight * 0.1)},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
