@@ -66,20 +66,20 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         activeColor = '&HF6823B&'; // Blue highlight (BGR format: F6 82 3B -> 3B82F6)
         inactiveColor = '&H000000&'; // Black
     } else if (preset === 'paper-cut') {
-        fontName = 'Courier New';
+        fontName = 'Segoe Print';
         baseFontSize = fontSize;
-        colors = '&H001A1A1A,&H000000FF,&H00000000,&HFFF7FBFD'; // Almost black text, off-white background box
+        colors = '&H00111111,&H000000FF,&H00000000,&H00DDF0F6'; // Black text, Beige paper background (RGB: F6F0DD)
         styleProps = '-1,0,3,0,2,0'; // BorderStyle=3
-        activeColor = '&H481DE1&'; // Rose (BGR format for E11D48 -> 48 1D E1)
-        inactiveColor = '&H1A1A1A&';
+        activeColor = '&H0000FF&'; // Pure Red
+        inactiveColor = '&H111111&';
         activeScale = true;
     } else if (preset === 'unusual-paper') {
-        fontName = 'Georgia';
+        fontName = 'Ink Free';
         baseFontSize = fontSize;
-        colors = '&H00F5F5F5,&H000000FF,&H00FFFFFF,&HFF111111'; // Off-white text, dark background box
-        styleProps = '-1,0,3,2,0,0'; // BorderStyle=3, Outline=2 (adds border to the box)
-        activeColor = '&H24BFFB&'; // Amber (FBBF24 -> 24 BF FB)
-        inactiveColor = '&HF5F5F5&';
+        colors = '&H00000000,&H000000FF,&H00000000,&H00E6EBF0'; // Black text, light grey-beige box (RGB: F0EBE6)
+        styleProps = '-1,0,3,2,0,0'; // BorderStyle=3, Outline=2
+        activeColor = '&H0000FF&'; // Pure Red
+        inactiveColor = '&H000000&';
     } else if (preset === 'beast') {
         fontName = 'Impact';
         baseFontSize = Math.round(fontSize * 1.2);
