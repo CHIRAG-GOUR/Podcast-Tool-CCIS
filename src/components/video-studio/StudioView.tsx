@@ -742,6 +742,18 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                             } else if (clip.style?.backgroundBox === 'black') {
                                 baseStyle.backgroundColor = 'black';
                                 baseStyle.borderRadius = '4px';
+                            } else if (clip.style?.backgroundBox === 'blur') {
+                                baseStyle.backgroundColor = 'rgba(128, 128, 128, 0.3)';
+                                baseStyle.backdropFilter = 'blur(12px)';
+                                baseStyle.borderRadius = '8px';
+                            } else if (clip.style?.backgroundBox === 'dark-blur') {
+                                baseStyle.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                                baseStyle.backdropFilter = 'blur(12px)';
+                                baseStyle.borderRadius = '8px';
+                            } else if (clip.style?.backgroundBox === 'white-blur') {
+                                baseStyle.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+                                baseStyle.backdropFilter = 'blur(12px)';
+                                baseStyle.borderRadius = '8px';
                             }
 
                             return (
@@ -929,6 +941,9 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                  <option value="none">None</option>
                                  <option value="white">White</option>
                                  <option value="black">Black</option>
+                                 <option value="blur">Blur (Glass)</option>
+                                 <option value="dark-blur">Dark Blur</option>
+                                 <option value="white-blur">White Blur</option>
                               </select>
                            </div>
                         </div>

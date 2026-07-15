@@ -144,7 +144,7 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         inactiveExtraTags = '\\u0'; // No underline
     }
     
-    if (backgroundBox === 'white' || backgroundBox === 'black') {
+    if (backgroundBox && backgroundBox !== 'none') {
         const styleParts = styleProps.split(',');
         styleParts[2] = '3'; // BorderStyle = 3 (Opaque box)
         styleParts[3] = '6'; // Outline = 6 (Padding)
@@ -153,8 +153,14 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         const colorParts = colors.split(',');
         if (backgroundBox === 'white') {
             colorParts[2] = '&H00FFFFFF&'; // White box
-        } else {
+        } else if (backgroundBox === 'black') {
             colorParts[2] = '&H00000000&'; // Black box
+        } else if (backgroundBox === 'blur') {
+            colorParts[2] = '&H80808080&'; // Semi-transparent Gray
+        } else if (backgroundBox === 'dark-blur') {
+            colorParts[2] = '&H80000000&'; // Semi-transparent Black
+        } else if (backgroundBox === 'white-blur') {
+            colorParts[2] = '&H90FFFFFF&'; // Semi-transparent White
         }
         colors = colorParts.join(',');
     }
