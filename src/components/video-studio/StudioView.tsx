@@ -663,11 +663,14 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 inactiveColor = 'white';
                                 activeScale = 1;
                             } else if (preset === 'tiktok') {
-                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.9)}px`;
+                                baseStyle.fontFamily = 'Montserrat, sans-serif';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 1.0)}px`;
                                 baseStyle.fontWeight = 800;
                                 baseStyle.WebkitTextStroke = '1.5px black';
                                 baseStyle.textShadow = '1px 1px 2px black';
-                                activeColor = '#FF0050'; // TikTok Red
+                                inactiveColor = 'white';
+                                activeColor = '#FFFF00'; // Fallback
+                                activeScale = 1.15;
                             } else if (preset === 'netflix') {
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 0.8)}px`;
                                 baseStyle.fontWeight = 600;
@@ -705,38 +708,32 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 activeColor = '#ffffff';
                                 activeScale = 1.05;
                             } else if (preset === 'paper-cut') {
-                                baseStyle.fontFamily = 'Impact, sans-serif';
-                                baseStyle.fontSize = `${Math.round(baseFontSize * 1.1)}px`;
-                                baseStyle.fontWeight = 900;
-                                baseStyle.textTransform = 'uppercase';
-                                baseStyle.backgroundColor = 'white';
-                                baseStyle.color = 'black';
+                                baseStyle.fontFamily = '"Segoe Print", sans-serif';
+                                baseStyle.fontSize = `${baseFontSize}px`;
+                                baseStyle.fontWeight = 700;
+                                baseStyle.backgroundColor = '#DDF0F6'; // Beige
+                                baseStyle.color = '#111111';
                                 baseStyle.padding = '4px 12px';
-                                baseStyle.clipPath = 'polygon(2% 0, 100% 2%, 98% 100%, 0 98%)';
-                                baseStyle.transform = `rotate(-2deg) scale(${isSelected ? 1.1 : 1})`;
-                                inactiveColor = 'rgba(0,0,0,0.4)';
-                                activeColor = 'black';
-                            } else if (preset === 'unusual-paper') {
-                                baseStyle.fontFamily = 'Courier New, monospace';
-                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.9)}px`;
-                                baseStyle.fontWeight = 800;
-                                baseStyle.textTransform = 'uppercase';
-                                baseStyle.backgroundColor = '#FFD700';
-                                baseStyle.color = 'black';
-                                baseStyle.padding = '4px 16px';
-                                baseStyle.transform = `rotate(3deg) scale(${isSelected ? 1.1 : 1})`;
+                                baseStyle.border = '3px solid black';
                                 baseStyle.boxShadow = '4px 4px 0px rgba(0,0,0,1)';
-                                inactiveColor = 'rgba(0,0,0,0.6)';
-                                activeColor = 'black';
+                                inactiveColor = '#111111';
+                                activeColor = '#FF0000';
                             } else if (preset === 'cinematic') {
                                 baseStyle.fontFamily = 'Georgia, serif';
-                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.8)}px`;
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.95)}px`;
                                 baseStyle.fontWeight = 400;
-                                baseStyle.fontStyle = 'italic';
-                                baseStyle.letterSpacing = '2px';
-                                baseStyle.textShadow = '0px 2px 8px rgba(0,0,0,0.8)';
-                                inactiveColor = 'rgba(255,255,255,0.5)';
-                                activeColor = 'white';
+                                baseStyle.WebkitTextStroke = '1px black';
+                                baseStyle.textShadow = '0px 3px 6px rgba(0,0,0,0.8)';
+                                inactiveColor = '#CCCCCC';
+                                activeColor = '#D4AF37'; // Gold
+                                activeScale = 1;
+                            } else if (preset === 'skillizee') {
+                                baseStyle.fontFamily = 'Inter, sans-serif';
+                                baseStyle.fontSize = `${baseFontSize}px`;
+                                baseStyle.fontWeight = 800;
+                                baseStyle.WebkitTextStroke = '1.5px black';
+                                inactiveColor = 'white';
+                                activeColor = '#2563EB'; // Skillizee Blue
                                 activeScale = 1;
                             }
 
@@ -746,13 +743,30 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                         <div style={{ display: 'inline-flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
                                             {activeChunk.words.map((w: any, idx: number) => {
                                                 const isActiveWord = currentTime >= w.start && currentTime <= w.end;
+                                                
+                                                let currentActiveColor = activeColor;
+                                                let currentStroke = baseStyle.WebkitTextStroke;
+                                                let currentTextDecoration = 'none';
+
+                                                if (isActiveWord) {
+                                                    if (preset === 'tiktok') {
+                                                        const colors = ['#00FFFF', '#FFFF00', '#00FF00', '#FF0000'];
+                                                        currentActiveColor = colors[idx % colors.length];
+                                                        currentStroke = '2.5px black';
+                                                    } else if (preset === 'skillizee') {
+                                                        currentStroke = '2.5px #FFFF00'; // Yellow stroke
+                                                        currentTextDecoration = 'underline';
+                                                    }
+                                                }
+
                                                 return (
                                                     <span key={idx} style={{ 
-                                                        color: isActiveWord ? activeColor : inactiveColor, 
+                                                        color: isActiveWord ? currentActiveColor : inactiveColor, 
                                                         transform: isActiveWord ? `scale(${activeScale})` : 'scale(1)',
                                                         display: 'inline-block',
                                                         transition: 'all 0.1s ease-in-out',
-                                                        WebkitTextStroke: isActiveWord && preset === 'tiktok' ? '1.5px black' : baseStyle.WebkitTextStroke
+                                                        WebkitTextStroke: currentStroke,
+                                                        textDecoration: currentTextDecoration
                                                     }}>
                                                         {w.word}
                                                     </span>
@@ -858,28 +872,29 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                               
 <div className="grid grid-cols-2 gap-2">
     {[
-        { id: 'hormozi', name: 'Opus Pro (Hormozi)' },
-        { id: 'beast', name: 'MrBeast' },
-        { id: 'modern-clean', name: 'Modern Clean' },
-        { id: 'paper-cut', name: 'Paper Cut' },
-        { id: 'tiktok', name: 'TikTok Default' },
-        { id: 'skillizee', name: 'Skillizee' },
-        { id: 'netflix', name: 'Netflix' },
-        { id: 'ali', name: 'Ali Abdaal' },
-        { id: 'neon', name: 'Neon Glow' },
-        { id: 'cinematic', name: 'Cinematic' }
+        { id: 'hormozi', name: 'Opus Pro (Hormozi)', desc: 'Bold & Yellow' },
+        { id: 'beast', name: 'MrBeast', desc: 'Loud & Slanted' },
+        { id: 'modern-clean', name: 'Modern Clean', desc: 'Minimal & Corporate' },
+        { id: 'paper-cut', name: 'Paper Cut', desc: 'Handwritten & Paper' },
+        { id: 'tiktok', name: 'TikTok Default', desc: 'Bouncy & Colorful' },
+        { id: 'skillizee', name: 'Skillizee', desc: 'Brand Blue Highlight' },
+        { id: 'netflix', name: 'Netflix', desc: 'Classic TV Subtitles' },
+        { id: 'ali', name: 'Ali Abdaal', desc: 'Orange Pop' },
+        { id: 'neon', name: 'Neon Glow', desc: 'Cyberpunk Aesthetic' },
+        { id: 'cinematic', name: 'Cinematic', desc: 'Elegant & Gold' }
     ].map(preset => (
         <button 
             key={preset.id}
             onClick={() => updateActiveClipStyle({ preset: preset.id })}
             className={cn(
-                "p-2 text-[10px] rounded border text-center transition-colors font-bold truncate",
+                "p-2 text-center rounded border transition-colors flex flex-col items-center justify-center truncate",
                 (activeClip.style.preset === preset.id || (!activeClip.style.preset && preset.id === 'hormozi')) 
                     ? "bg-[#6366F1] text-white border-[#6366F1]" 
                     : (theme === 'dark' ? "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700" : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200")
             )}
         >
-            {preset.name}
+            <span className="text-[10px] font-bold">{preset.name}</span>
+            <span className="text-[8px] opacity-75 font-normal mt-0.5">{preset.desc}</span>
         </button>
     ))}
 </div>
