@@ -81,7 +81,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
   const [leftTab, setLeftTab] = useState<'media'|'audio'|'text'|'ai'|'effects'>('media')
   
   // Right Panel - Inspector
-  const [rightTab, setRightTab] = useState<'video'|'audio'|'color'>('video')
+  const [showProperties, setShowProperties] = useState(false)
   
   // Timeline State
   const [zoom, setZoom] = useState(100)
@@ -311,9 +311,11 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
              <div className={cn("w-px h-4 mx-1 border-l", borderCol)} />
              <button onClick={handleUndo} className={cn("p-1.5 rounded transition-colors", textMuted, bgHover)}><Undo className="w-4 h-4"/></button>
              <button className={cn("p-1.5 rounded transition-colors", textMuted, bgHover)}><Redo className="w-4 h-4"/></button>
-             <div className={cn("w-px h-4 mx-1 border-l", borderCol)} />
-             <button onClick={() => setShowExport(true)} className="flex items-center gap-2 bg-[#6366F1] hover:bg-[#4F46E5] text-white px-4 py-1.5 rounded text-xs font-semibold transition-colors">
-               <Download className="w-3.5 h-3.5" /> Export
+             <button onClick={() => setShowProperties(!showProperties)} className={cn("p-1.5 rounded transition-colors", textMuted, bgHover, showProperties && textHighlight)}>
+               <SlidersHorizontal className="w-4 h-4" />
+             </button>
+             <button onClick={() => setShowExport(true)} className="flex items-center justify-center bg-[#6366F1] hover:bg-[#4F46E5] text-white w-7 h-7 rounded transition-colors" title="Export">
+               <Download className="w-4 h-4" />
              </button>
            </div>
          </header>
@@ -673,7 +675,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                 </button>
              )}
 
-             <div ref={previewContainerRef} className={cn("relative bg-black rounded-lg shadow-2xl h-full max-h-full overflow-hidden", aspectMap[aspectRatio] || 'aspect-video')}>
+             <div ref={previewContainerRef} style={{ containerType: 'inline-size' }} className={cn("relative bg-black rounded-lg shadow-2xl h-full max-h-full overflow-hidden flex-shrink-0 w-full", aspectMap[aspectRatio] || 'aspect-video')}>
                 {fileUrl && (
                   <video 
                     ref={videoRef}
@@ -886,6 +888,13 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 baseStyle.backdropFilter = 'blur(12px)';
                                 baseStyle.borderRadius = '8px';
                             }
+                            if (baseStyle.fontSize) {
+                                const pxSize = parseFloat(baseStyle.fontSize as string);
+                                const isPortrait = aspectRatio === '9:16' || aspectRatio === '4:5';
+                                const refWidth = isPortrait ? 1080 : 1920;
+                                const scaleVw = (pxSize / refWidth) * 100;
+                                baseStyle.fontSize = `${scaleVw}cqw`;
+                            }
 
                             return (
                                 <div style={baseStyle}>
@@ -1002,6 +1011,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
         </main>
 
         {/* Right Inspector */}
+        {showProperties && (
         <aside className={cn("w-72 flex flex-col border-l shrink-0 overflow-hidden", borderCol, bgSidebar)}>
                <div className={cn("flex border-b px-4 py-3", borderCol)}>
                   <h3 className={cn("text-xs font-bold uppercase tracking-wider", textHighlight)}>Properties</h3>
@@ -1151,6 +1161,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                   )}
                </div>
              </aside>
+            )}
       </div>
 
       {/* Bottom Timeline */}
