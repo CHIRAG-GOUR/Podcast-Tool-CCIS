@@ -171,9 +171,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 const cw = words[j];
                 if (j === i) {
                     if (activeScale) {
-                        sentence += `{\fscx115\fscy115\c${activeColor}}${cw.word}{\fscx100\fscy100\c${inactiveColor}} `;
+                        sentence += `{\\fscx115\\fscy115\\c${activeColor}}${cw.word}{\\fscx100\\fscy100\\c${inactiveColor}} `;
                     } else {
-                        sentence += `{\c${activeColor}}${cw.word}{\c${inactiveColor}} `;
+                        sentence += `{\\c${activeColor}}${cw.word}{\\c${inactiveColor}} `;
                     }
                 } else {
                     sentence += `${cw.word} `;
