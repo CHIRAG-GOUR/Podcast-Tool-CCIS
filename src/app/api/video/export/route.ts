@@ -195,28 +195,54 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             const start = formatAssTime(w.start);
             const end = formatAssTime(w.end);
             
-            let sentence = "";
-            for (let j = 0; j < words.length; j++) {
-                const cw = words[j];
-                if (j === i) {
-                    let currentColor = activeColor;
-                    if (activeColorList && activeColorList.length > 0) {
-                        currentColor = activeColorList[i % activeColorList.length];
-                    }
-                    let prefix = `\\c${currentColor}${activeExtraTags}`;
-                    let suffix = `\\c${inactiveColor}${inactiveExtraTags}`;
-                    
-                    if (activeScale) {
-                        sentence += `{\\fscx115\\fscy115${prefix}}${cw.word}{\\fscx100\\fscy100${suffix}} `;
+            if (preset === 'skillizee') {
+                // Layer 0: Yellow Text with Underline (will be covered by Layer 1, leaving only underline visible)
+                let sentenceL0 = "";
+                for (let j = 0; j < words.length; j++) {
+                    const cw = words[j];
+                    if (j === i) {
+                        sentenceL0 += `{\\c&H00FFFF&\\u1}${cw.word}{\\u0} `;
                     } else {
-                        sentence += `{${prefix}}${cw.word}{${suffix}} `;
+                        sentenceL0 += `{\\alpha&HFF&}${cw.word}{\\alpha0} `; // Invisible placeholder for inactive words
                     }
-                } else {
-                    sentence += `${cw.word} `;
                 }
+                ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${sentenceL0.trim()}\n`;
+
+                // Layer 1: Blue Text WITHOUT Underline
+                let sentenceL1 = "";
+                for (let j = 0; j < words.length; j++) {
+                    const cw = words[j];
+                    if (j === i) {
+                        sentenceL1 += `{\\c&HEB6325&\\u0}${cw.word}{\\c${inactiveColor}} `;
+                    } else {
+                        sentenceL1 += `${cw.word} `;
+                    }
+                }
+                ass += `Dialogue: 1,${start},${end},Captions,,0,0,0,,${sentenceL1.trim()}\n`;
+
+            } else {
+                let sentence = "";
+                for (let j = 0; j < words.length; j++) {
+                    const cw = words[j];
+                    if (j === i) {
+                        let currentColor = activeColor;
+                        if (activeColorList && activeColorList.length > 0) {
+                            currentColor = activeColorList[i % activeColorList.length];
+                        }
+                        let prefix = `\\c${currentColor}${activeExtraTags}`;
+                        let suffix = `\\c${inactiveColor}${inactiveExtraTags}`;
+                        
+                        if (activeScale) {
+                            sentence += `{\\fscx115\\fscy115${prefix}}${cw.word}{\\fscx100\\fscy100${suffix}} `;
+                        } else {
+                            sentence += `{${prefix}}${cw.word}{${suffix}} `;
+                        }
+                    } else {
+                        sentence += `${cw.word} `;
+                    }
+                }
+                ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${sentence.trim()}\n`;
             }
-            ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${sentence.trim()}
-`;
         }
     });
 
