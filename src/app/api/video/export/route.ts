@@ -49,6 +49,7 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
     let activeColor = '&H00FFFF&'; // Yellow BGR
     let inactiveColor = '&HFFFFFF&'; // White BGR
     let activeScale = false;
+    let activeColorList: string[] | null = null;
 
     if (preset === 'hormozi' || preset === 'opus') {
         fontName = 'Montserrat';
@@ -92,7 +93,8 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         baseFontSize = Math.round(fontSize * 1.0);
         colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000'; // White text, black outline
         styleProps = '-1,0,1,5,1,0'; // Bold, Outline=5, Shadow=1
-        activeColor = '&H00FFFF&'; // Bright Yellow
+        activeColor = '&H00FFFF&'; // Fallback
+        activeColorList = ['&HFFFF00&', '&H00FFFF&', '&H00FF00&', '&H0000FF&']; // Cyan, Yellow, Green, Red
         inactiveColor = '&HFFFFFF&'; // White
         activeScale = true; // TikTok captions bounce
     } else if (preset === 'netflix') {
@@ -165,10 +167,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             for (let j = 0; j < words.length; j++) {
                 const cw = words[j];
                 if (j === i) {
+                    let currentColor = activeColor;
+                    if (activeColorList && activeColorList.length > 0) {
+                        currentColor = activeColorList[i % activeColorList.length];
+                    }
                     if (activeScale) {
-                        sentence += `{\\fscx115\\fscy115\\c${activeColor}}${cw.word}{\\fscx100\\fscy100\\c${inactiveColor}} `;
+                        sentence += `{\\fscx115\\fscy115\\c${currentColor}}${cw.word}{\\fscx100\\fscy100\\c${inactiveColor}} `;
                     } else {
-                        sentence += `{\\c${activeColor}}${cw.word}{\\c${inactiveColor}} `;
+                        sentence += `{\\c${currentColor}}${cw.word}{\\c${inactiveColor}} `;
                     }
                 } else {
                     sentence += `${cw.word} `;
