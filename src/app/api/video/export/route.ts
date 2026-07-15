@@ -36,7 +36,7 @@ function formatAssTime(seconds: number) {
     return `${h}:${m.toString().padStart(2, '0')}:${Math.floor(s).toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
 }
 
-function generateAssFile(captions: any[], videoWidth: number, videoHeight: number, preset: string = 'hormozi', userFontSize: number = 48) {
+function generateAssFile(captions: any[], videoWidth: number, videoHeight: number, preset: string = 'hormozi', userFontSize: number = 48, backgroundBox: string = 'none') {
     const fontSize = userFontSize || 48;
     
     let fontName = 'Inter';
@@ -144,6 +144,21 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         inactiveExtraTags = '\\u0'; // No underline
     }
     
+    if (backgroundBox === 'white' || backgroundBox === 'black') {
+        const styleParts = styleProps.split(',');
+        styleParts[2] = '3'; // BorderStyle = 3 (Opaque box)
+        styleParts[3] = '6'; // Outline = 6 (Padding)
+        styleProps = styleParts.join(',');
+        
+        const colorParts = colors.split(',');
+        if (backgroundBox === 'white') {
+            colorParts[2] = '&H00FFFFFF&'; // White box
+        } else {
+            colorParts[2] = '&H00000000&'; // Black box
+        }
+        colors = colorParts.join(',');
+    }
+
     // IMPORTANT: Alignment is 2 (Bottom-Center). MarginV pushes it up from the bottom.
     let ass = `[Script Info]
 ScriptType: v4.00+
@@ -256,7 +271,7 @@ export async function POST(req: Request) {
     let vfStr = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}`;
 
     if (captions.length > 0) {
-        const assContent = generateAssFile(captions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize);
+        const assContent = generateAssFile(captions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize, (style as any).backgroundBox);
         await writeFile(tempFilterPath, assContent, 'utf-8');
         const fontsDir = join(process.cwd(), 'public', 'fonts').replace(/\\/g, '/').replace(/:/g, '\\:');
         const safeAssPath = tempFilterPath.replace(/\\/g, '/').replace(/:/g, '\\:');

@@ -736,6 +736,13 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 activeColor = '#2563EB'; // Skillizee Blue
                                 activeScale = 1;
                             }
+                            if (clip.style?.backgroundBox === 'white') {
+                                baseStyle.backgroundColor = 'white';
+                                baseStyle.borderRadius = '4px';
+                            } else if (clip.style?.backgroundBox === 'black') {
+                                baseStyle.backgroundColor = 'black';
+                                baseStyle.borderRadius = '4px';
+                            }
 
                             return (
                                 <div style={baseStyle}>
@@ -914,6 +921,15 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                            <div className="flex items-center justify-between mt-4">
                               <label className={cn("text-[10px] uppercase font-bold", textMuted)}>Font Size</label>
                               <input type="number" value={activeClip.style.fontSize} onChange={e => updateActiveClipStyle({ fontSize: Number(e.target.value) })} className={cn("w-20 p-2 text-xs rounded border text-center", bgMain, borderCol, textHighlight)} />
+                           </div>
+
+                           <div className="flex items-center justify-between mt-4">
+                              <label className={cn("text-[10px] uppercase font-bold", textMuted)}>Background Box</label>
+                              <select value={activeClip.style.backgroundBox || 'none'} onChange={e => updateActiveClipStyle({ backgroundBox: e.target.value })} className={cn("w-28 p-2 text-xs rounded border", bgMain, borderCol, textHighlight)}>
+                                 <option value="none">None</option>
+                                 <option value="white">White</option>
+                                 <option value="black">Black</option>
+                              </select>
                            </div>
                         </div>
                         <div className={cn("w-full h-px", borderCol, "border-b")} />
