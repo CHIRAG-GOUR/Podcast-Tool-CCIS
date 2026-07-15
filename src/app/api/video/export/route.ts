@@ -124,11 +124,11 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         activeColor = '&H000000&'; // Black
     } else if (preset === 'cinematic') {
         fontName = 'Georgia';
-        baseFontSize = Math.round(fontSize * 0.8);
-        colors = '&H80FFFFFF,&H000000FF,&H00000000,&H00000000'; 
-        styleProps = '0,-1,1,0,4,2'; 
-        inactiveColor = '&HFFFFFF&';
-        activeColor = '&HFFFFFF&'; 
+        baseFontSize = Math.round(fontSize * 0.95);
+        colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000'; // Pure white text, black outline, shadow
+        styleProps = '0,0,1,1,3,2'; // Not bold, Not italic, BorderStyle=1, Outline=1, Shadow=3, Spacing=2
+        inactiveColor = '&HCCCCCC&'; // Light grey
+        activeColor = '&H37AFD4&'; // Cinematic Gold (BGR)
     }
     
     // IMPORTANT: Alignment is 2 (Bottom-Center). MarginV pushes it up from the bottom.
