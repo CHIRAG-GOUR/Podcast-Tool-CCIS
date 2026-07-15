@@ -1251,18 +1251,31 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                         
                         {t.type === 'audio' && projectClips.map(c => (
                            <div key={c.id} className={cn(
-                              "absolute h-14 top-1 rounded-md overflow-hidden border transition-all",
-                              "border-green-500/50 bg-green-500/10"
+                              "absolute h-14 top-1 rounded-md overflow-hidden border transition-all shadow-inner",
+                              "border-gray-800 bg-[#050505]"
                            )}
-                           style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
+                           style={{ 
+                              left: `${c.start * zoom}px`, 
+                              width: `${c.duration * zoom}px`,
+                              backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
+                              backgroundSize: '8px 8px'
+                           }}
                            >
-                              <div className="absolute top-1 left-2 text-[9px] font-bold text-green-700 dark:text-green-300 z-10 flex items-center gap-1">
-                                 <AudioWaveform className="w-3 h-3" /> Audio Track
+                              <div className="absolute top-1 left-2 text-[9px] font-bold text-white/90 bg-black/50 backdrop-blur-sm px-1.5 py-0.5 rounded shadow z-20 flex items-center gap-1">
+                                 <AudioWaveform className="w-3 h-3 text-[#FF00FF]" /> Audio Track
                               </div>
-                              <div className="absolute inset-0 top-4 bottom-1 flex items-center justify-between px-1 opacity-90 overflow-hidden">
-                                 {audioWaveform.map((h, i) => (
-                                    <div key={i} className="bg-green-600 dark:bg-green-400 rounded-sm" style={{ height: `${h}%`, width: '1.5px' }} />
-                                 ))}
+                              <div className="absolute inset-0 top-3 bottom-1 flex items-center justify-between px-1 overflow-hidden z-10">
+                                 {audioWaveform.map((h, i) => {
+                                    const hue = 60 + (i / audioWaveform.length) * 300; // Sweep from yellow to blue/purple
+                                    return (
+                                       <div key={i} className="rounded-[1px] transition-all" style={{ 
+                                          height: `${h}%`, 
+                                          width: '1.5px',
+                                          backgroundColor: `hsl(${hue}, 100%, 55%)`,
+                                          boxShadow: `0 0 6px hsl(${hue}, 100%, 55%)`
+                                       }} />
+                                    );
+                                 })}
                               </div>
                            </div>
                         ))}
