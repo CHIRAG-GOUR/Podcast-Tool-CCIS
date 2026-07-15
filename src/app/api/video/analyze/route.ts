@@ -146,6 +146,8 @@ Return ONLY a valid JSON array. Each object in the array must have:
 - "caption_style": The best caption style. Choose one of: "Hormozi", "Minimal", "Bold", "Default".
 - "caption_color": A hex color string for the caption text, e.g., "#ffffff" or "#facc15".
 - "caption_text": A short punchy caption text representing the main hook of this clip.
+- "instagram_caption": A fully written, highly engaging caption suitable for an Instagram Reel or TikTok post, including spacing, context, and a call-to-action.
+- "hashtags": A string containing 5-8 highly relatable, high-reach hashtags separated by spaces (e.g. "#viral #podcast #mindset").
 
 Do NOT include markdown formatting or backticks. Just pure JSON.`;
 

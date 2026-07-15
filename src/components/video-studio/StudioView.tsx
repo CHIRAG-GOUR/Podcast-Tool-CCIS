@@ -285,7 +285,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                    { id: 'media', icon: FolderOpen, label: 'Media' },
                    { id: 'text', icon: Type, label: 'Text' },
                    { id: 'ai', icon: Sparkles, label: 'AI Clips' },
-                   { id: 'effects', icon: Wand2, label: 'Effects' }
+                   { id: 'effects', icon: Wand2, label: 'Additional Features' }
                  ].map(t => (
                    <button 
                      key={t.id} onClick={() => setLeftTab(t.id as any)}
@@ -501,36 +501,60 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                    </div>
                  )}
 
-                 {/* Effects Tab */}
+                 {/* Additional Features Tab */}
                  {leftTab === 'effects' && (
                     <div className="space-y-6">
-                       <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Suggested Hooks</h3>
-                       <div className="space-y-2">
-                          {["The untold truth about...", "Why you're wrong about...", "This changes everything:", "Stop doing this now!"].map((hook, i) => (
-                             <button key={i} className={cn("w-full p-3 rounded-lg border text-left transition-all", bgPanel, borderCol, "hover:border-[#6366F1] group")}>
-                                <p className={cn("text-[11px] font-semibold mb-1", textHighlight)}>{hook}</p>
-                                <span className={cn("text-[9px] opacity-0 group-hover:opacity-100 transition-opacity text-[#6366F1]")}>Click to add to timeline</span>
-                             </button>
-                          ))}
-                       </div>
+                       <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Generated Hooks & Captions</h3>
+                       {aiClips.length > 0 ? (
+                           <div className="space-y-4">
+                              {aiClips.map((clip: any, i: number) => (
+                                 <div key={i} className={cn("w-full p-3 rounded-lg border text-left flex flex-col gap-2", bgPanel, borderCol)}>
+                                    <div>
+                                        <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Viral Title</span>
+                                        <p className={cn("text-xs font-semibold", textHighlight)}>{clip.title}</p>
+                                    </div>
+                                    <div>
+                                        <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>The Hook</span>
+                                        <p className={cn("text-[10px]", textMuted)}>{clip.reason}</p>
+                                    </div>
+                                    {clip.instagram_caption && (
+                                        <div>
+                                            <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Social Caption</span>
+                                            <p className={cn("text-[10px] whitespace-pre-wrap", textMuted)}>{clip.instagram_caption}</p>
+                                        </div>
+                                    )}
+                                    {clip.hashtags && (
+                                        <div>
+                                            <span className={cn("text-[9px] font-bold uppercase tracking-wider text-[#6366F1]")}>Hashtags</span>
+                                            <p className={cn("text-[10px] font-semibold text-[#6366F1]")}>{clip.hashtags}</p>
+                                        </div>
+                                    )}
+                                 </div>
+                              ))}
+                           </div>
+                       ) : (
+                           <div className={cn("text-xs text-center p-4", textMuted)}>
+                               No hooks or captions generated yet. Upload and analyze a video first!
+                           </div>
+                       )}
                        
                        <div className="w-full h-px bg-gray-200 dark:bg-gray-800 my-4" />
 
                        <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Video Effects</h3>
                        <div className="grid grid-cols-2 gap-2">
-                          <button className={cn("p-3 rounded border text-center transition-colors", bgMain, borderCol, "hover:border-[#6366F1]")}>
+                          <button className={cn("p-3 rounded border text-center transition-colors opacity-50 cursor-not-allowed", bgMain, borderCol)}>
                              <div className="w-full h-12 bg-gray-200 dark:bg-gray-800 rounded mb-2 flex items-center justify-center"><ZoomIn className="w-5 h-5 text-gray-500"/></div>
                              <span className={cn("text-[10px] font-semibold", textHighlight)}>Auto Zoom</span>
                           </button>
-                          <button className={cn("p-3 rounded border text-center transition-colors", bgMain, borderCol, "hover:border-[#6366F1]")}>
+                          <button className={cn("p-3 rounded border text-center transition-colors opacity-50 cursor-not-allowed", bgMain, borderCol)}>
                              <div className="w-full h-12 bg-gray-200 dark:bg-gray-800 rounded mb-2 flex items-center justify-center"><Film className="w-5 h-5 text-gray-500"/></div>
                              <span className={cn("text-[10px] font-semibold", textHighlight)}>B-Roll</span>
                           </button>
-                          <button className={cn("p-3 rounded border text-center transition-colors", bgMain, borderCol, "hover:border-[#6366F1]")}>
+                          <button className={cn("p-3 rounded border text-center transition-colors opacity-50 cursor-not-allowed", bgMain, borderCol)}>
                              <div className="w-full h-12 bg-gray-200 dark:bg-gray-800 rounded mb-2 flex items-center justify-center"><Volume2 className="w-5 h-5 text-gray-500"/></div>
                              <span className={cn("text-[10px] font-semibold", textHighlight)}>Sound FX</span>
                           </button>
-                          <button className={cn("p-3 rounded border text-center transition-colors", bgMain, borderCol, "hover:border-[#6366F1]")}>
+                          <button className={cn("p-3 rounded border text-center transition-colors opacity-50 cursor-not-allowed", bgMain, borderCol)}>
                              <div className="w-full h-12 bg-gray-200 dark:bg-gray-800 rounded mb-2 flex items-center justify-center"><Sparkles className="w-5 h-5 text-gray-500"/></div>
                              <span className={cn("text-[10px] font-semibold", textHighlight)}>Color Grade</span>
                           </button>
