@@ -132,7 +132,12 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
     }
     
     // Generate realistic audio waveform structure
-    const waves = Array.from({length: 150}).map(() => Math.random() * 80 + 20);
+    const waves = Array.from({length: 400}).map((_, i) => {
+        // Create a more natural looking waveform using sine waves and random noise
+        const base = Math.sin(i * 0.1) * 30 + 40;
+        const noise = Math.random() * 30;
+        return Math.min(100, Math.max(10, base + noise));
+    });
     setAudioWaveform(waves);
     
     generate();
@@ -1251,10 +1256,12 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                            )}
                            style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
                            >
-                              <div className="absolute top-0.5 left-1.5 text-[9px] font-bold text-green-700 dark:text-green-300 z-10">Audio Track</div>
-                              <div className="absolute inset-0 top-3 flex items-center justify-center opacity-80 overflow-hidden">
+                              <div className="absolute top-1 left-2 text-[9px] font-bold text-green-700 dark:text-green-300 z-10 flex items-center gap-1">
+                                 <AudioWaveform className="w-3 h-3" /> Audio Track
+                              </div>
+                              <div className="absolute inset-0 top-4 bottom-1 flex items-center justify-between px-1 opacity-90 overflow-hidden">
                                  {audioWaveform.map((h, i) => (
-                                    <div key={i} className="flex-1 mx-[0.5px] bg-green-500 rounded-full" style={{ height: `${h}%`, minWidth: '2px' }} />
+                                    <div key={i} className="bg-green-600 dark:bg-green-400 rounded-sm" style={{ height: `${h}%`, width: '1.5px' }} />
                                  ))}
                               </div>
                            </div>
