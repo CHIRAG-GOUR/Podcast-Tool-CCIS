@@ -50,6 +50,8 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
     let inactiveColor = '&HFFFFFF&'; // White BGR
     let activeScale = false;
     let activeColorList: string[] | null = null;
+    let activeExtraTags = '';
+    let inactiveExtraTags = '';
 
     if (preset === 'hormozi' || preset === 'opus') {
         fontName = 'Montserrat';
@@ -131,6 +133,15 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         styleProps = '0,0,1,1,3,2'; // Not bold, Not italic, BorderStyle=1, Outline=1, Shadow=3, Spacing=2
         inactiveColor = '&HCCCCCC&'; // Light grey
         activeColor = '&H37AFD4&'; // Cinematic Gold (BGR)
+    } else if (preset === 'skillizee') {
+        fontName = 'Inter';
+        baseFontSize = fontSize;
+        colors = '&H00FFFFFF,&H000000FF,&H00000000,&H00000000'; // White text, black outline
+        styleProps = '-1,0,1,3,0,0'; // Bold, Outline=3
+        inactiveColor = '&HFFFFFF&'; // White
+        activeColor = '&HEB6325&'; // Skillizee Blue (#2563EB -> BGR: EB6325)
+        activeExtraTags = '\\3c&H00FFFF&\\u1'; // Yellow outline stroke, underline
+        inactiveExtraTags = '\\3c&H000000&\\u0'; // Back to black outline, no underline
     }
     
     // IMPORTANT: Alignment is 2 (Bottom-Center). MarginV pushes it up from the bottom.
@@ -171,10 +182,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     if (activeColorList && activeColorList.length > 0) {
                         currentColor = activeColorList[i % activeColorList.length];
                     }
+                    let prefix = `\\c${currentColor}${activeExtraTags}`;
+                    let suffix = `\\c${inactiveColor}${inactiveExtraTags}`;
+                    
                     if (activeScale) {
-                        sentence += `{\\fscx115\\fscy115\\c${currentColor}}${cw.word}{\\fscx100\\fscy100\\c${inactiveColor}} `;
+                        sentence += `{\\fscx115\\fscy115${prefix}}${cw.word}{\\fscx100\\fscy100${suffix}} `;
                     } else {
-                        sentence += `{\\c${currentColor}}${cw.word}{\\c${inactiveColor}} `;
+                        sentence += `{${prefix}}${cw.word}{${suffix}} `;
                     }
                 } else {
                     sentence += `${cw.word} `;
