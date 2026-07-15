@@ -37,9 +37,6 @@ function formatAssTime(seconds: number) {
 }
 
 function generateAssFile(captions: any[], videoWidth: number, videoHeight: number, preset: string = 'hormozi', userFontSize: number = 48) {
-    // Instead of forcing 5% of height, we use the user's selected font size.
-    // If the video is much larger than standard 1080p height, we can scale it gently if desired,
-    // but the user specifically requested "same size as normal ones i think it was about 48px".
     const fontSize = userFontSize || 48;
     
     let fontName = 'Inter';
@@ -53,12 +50,36 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
     let inactiveColor = '&H00FFFFFF&'; // White BGR
     let activeScale = false;
 
-    if (preset === 'hormozi') {
+    if (preset === 'hormozi' || preset === 'opus') {
+        fontName = 'Montserrat';
         baseFontSize = fontSize;
         colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000';
-        styleProps = '-1,0,1,0,8,0'; // Shadow=8
-        activeColor = '&H0000FFFF&';
+        styleProps = '-1,0,1,3,10,0'; // Outline=3, Shadow=10
+        activeColor = '&H0000FFFF&'; // Bright Yellow
+        inactiveColor = '&H00FFFFFF&';
         activeScale = true;
+    } else if (preset === 'modern-clean') {
+        fontName = 'Inter';
+        baseFontSize = Math.round(fontSize * 0.8);
+        colors = '&H00000000,&H000000FF,&H00000000,&HFFFFFFFF'; // Black text, White background
+        styleProps = '0,0,3,0,0,0'; // BorderStyle=3 (Opaque box)
+        activeColor = '&H00F6823B&'; // Blue highlight (BGR format: F6 82 3B -> 3B82F6)
+        inactiveColor = '&H00000000&'; // Black
+    } else if (preset === 'paper-cut') {
+        fontName = 'Courier New';
+        baseFontSize = fontSize;
+        colors = '&H001A1A1A,&H000000FF,&H00000000,&HFFF7FBFD'; // Almost black text, off-white background box
+        styleProps = '-1,0,3,0,2,0'; // BorderStyle=3
+        activeColor = '&H00481DE1&'; // Rose (BGR format for E11D48 -> 48 1D E1)
+        inactiveColor = '&H001A1A1A&';
+        activeScale = true;
+    } else if (preset === 'unusual-paper') {
+        fontName = 'Georgia';
+        baseFontSize = fontSize;
+        colors = '&H00F5F5F5,&H000000FF,&H00FFFFFF,&HFF111111'; // Off-white text, dark background box
+        styleProps = '-1,0,3,2,0,0'; // BorderStyle=3, Outline=2 (adds border to the box)
+        activeColor = '&H0024BFFB&'; // Amber (FBBF24 -> 24 BF FB)
+        inactiveColor = '&H00F5F5F5&';
     } else if (preset === 'beast') {
         fontName = 'Impact';
         baseFontSize = Math.round(fontSize * 1.2);
@@ -70,7 +91,7 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         fontName = 'Arial';
         baseFontSize = Math.round(fontSize * 0.6);
         colors = '&H00FFFFFF,&H000000FF,&H00000000,&HB3000000';
-        styleProps = '-1,0,3,0,0,0'; // BorderStyle=3 (Opaque box)
+        styleProps = '-1,0,3,0,0,0'; 
         activeColor = '&H00FFFFFF&';
         inactiveColor = '&H00FFFFFF&';
     } else if (preset === 'tiktok') {
@@ -106,20 +127,13 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         styleProps = '0,0,1,0,0,0'; // No bold, No shadow
         inactiveColor = '&H00D3D3D3&'; // LightGray
         activeColor = '&H00000000&'; // Black
-    } else if (preset === 'typewriter') {
-        fontName = 'Courier New';
-        baseFontSize = Math.round(fontSize * 0.7);
-        colors = '&H00346516,&H000000FF,&H00000000,&HB3000000';
-        styleProps = '-1,0,3,1,0,0';
-        inactiveColor = '&H00346516&';
-        activeColor = '&H005EC522&';
     } else if (preset === 'cinematic') {
         fontName = 'Georgia';
         baseFontSize = Math.round(fontSize * 0.8);
-        colors = '&H80FFFFFF,&H000000FF,&H00000000,&H00000000'; // Semi-transparent white
-        styleProps = '0,-1,1,0,4,2'; // Shadow=4, Spacing=2, Italic=-1
+        colors = '&H80FFFFFF,&H000000FF,&H00000000,&H00000000'; 
+        styleProps = '0,-1,1,0,4,2'; 
         inactiveColor = '&H80FFFFFF&';
-        activeColor = '&H00FFFFFF&'; // Solid white
+        activeColor = '&H00FFFFFF&'; 
     }
     
     // IMPORTANT: Alignment is 2 (Bottom-Center). MarginV pushes it up from the bottom.
