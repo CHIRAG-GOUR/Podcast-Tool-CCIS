@@ -293,10 +293,11 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
   }, [])
 
   return (
-    <div className={cn("flex-1 w-full flex flex-col font-sans overflow-hidden text-sm transition-colors duration-300", bgMain, textMain, isFullscreen ? "fixed inset-0 z-50 h-screen" : "h-[calc(100vh-4rem)]")}>
+    <div className={cn("flex-1 w-full flex flex-col font-sans overflow-hidden text-sm transition-colors duration-300 relative", bgMain, textMain, isFullscreen ? "fixed inset-0 z-50 h-screen" : "h-[calc(100vh-4rem)]")}>
       
-      {/* Top Bar */}
-         <header className={cn("h-12 border-b flex items-center justify-between px-4 shrink-0 transition-colors", borderCol, bgPanel)}>
+      {/* Auto-Hide Top Bar Wrapper */}
+      <div className="absolute top-0 inset-x-0 z-[60] flex flex-col transform -translate-y-[calc(100%-8px)] hover:translate-y-0 transition-transform duration-300 ease-in-out">
+         <header className={cn("h-12 border-b flex items-center justify-between px-4 shrink-0 shadow-lg", borderCol, bgPanel)}>
            <div className="flex items-center gap-4">
              <button onClick={() => onBack?.()} className={cn("transition-colors", textMuted, `hover:${textHighlight}`)}><ArrowLeft className="w-4 h-4"/></button>
              <div className={cn("w-px h-4", borderCol, "border-l")} />
@@ -320,9 +321,12 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
              </button>
            </div>
          </header>
+         {/* Hover Trigger Zone */}
+         <div className="h-6 w-full bg-transparent" />
+      </div>
 
       {/* Main Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-[500px] pt-2">
         
         {/* Left Asset Manager */}
         <aside className={cn("w-80 flex flex-col border-r shrink-0 overflow-hidden", borderCol, bgSidebar)}>
@@ -1174,7 +1178,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
             const startHeight = timelineHeight;
             const onMouseMove = (moveEvent: MouseEvent) => {
                const deltaY = startY - moveEvent.clientY;
-               setTimelineHeight(Math.max(100, Math.min(window.innerHeight - 200, startHeight + deltaY)));
+               setTimelineHeight(Math.max(100, Math.min(window.innerHeight - 500, startHeight + deltaY)));
             };
             const onMouseUp = () => {
                document.removeEventListener('mousemove', onMouseMove);
