@@ -73,13 +73,6 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         activeColor = '&H0000FF&'; // Pure Red
         inactiveColor = '&H111111&';
         activeScale = true;
-    } else if (preset === 'unusual-paper') {
-        fontName = 'Ink Free';
-        baseFontSize = fontSize;
-        colors = '&H00000000,&H000000FF,&H00E6EBF0,&H00000000'; // Black text, light grey-beige box
-        styleProps = '-1,0,3,6,0,0'; // BorderStyle=3, Outline=6
-        activeColor = '&H0000FF&'; // Pure Red
-        inactiveColor = '&H000000&';
     } else if (preset === 'beast') {
         fontName = 'Impact';
         baseFontSize = Math.round(fontSize * 1.2);
@@ -95,11 +88,13 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         activeColor = '&HFFFFFF&';
         inactiveColor = '&HFFFFFF&';
     } else if (preset === 'tiktok') {
-        fontName = 'Inter';
-        baseFontSize = Math.round(fontSize * 0.9);
-        colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000';
-        styleProps = '-1,0,1,3,0,0'; // Outline=3
-        activeColor = '&H0000FF&'; // Red
+        fontName = 'Montserrat';
+        baseFontSize = Math.round(fontSize * 1.0);
+        colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000'; // White text, black outline
+        styleProps = '-1,0,1,5,1,0'; // Bold, Outline=5, Shadow=1
+        activeColor = '&H00FFFF&'; // Bright Yellow
+        inactiveColor = '&HFFFFFF&'; // White
+        activeScale = true; // TikTok captions bounce
     } else if (preset === 'netflix') {
         fontName = 'Arial';
         baseFontSize = Math.round(fontSize * 0.8);

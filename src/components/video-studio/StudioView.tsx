@@ -862,7 +862,6 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
         { id: 'beast', name: 'MrBeast' },
         { id: 'modern-clean', name: 'Modern Clean' },
         { id: 'paper-cut', name: 'Paper Cut' },
-        { id: 'unusual-paper', name: 'Unusual Paper' },
         { id: 'tiktok', name: 'TikTok Default' },
         { id: 'netflix', name: 'Netflix' },
         { id: 'ali', name: 'Ali Abdaal' },
