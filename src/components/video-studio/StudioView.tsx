@@ -371,6 +371,11 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                              </div>
                           </div>
                           <h4 className={cn("font-semibold text-xs mb-1 line-clamp-1", textHighlight)}>{clip.title}</h4>
+                          {clip.hashtags && (
+                             <p className="text-[9px] text-[#6366F1] font-semibold mb-2 line-clamp-2 leading-tight">
+                               {clip.hashtags}
+                             </p>
+                          )}
                           <div className={cn("flex justify-between text-[10px]", textMuted)}>
                              <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-500"/> Score: {clip.score}</span>
                              <span>{clip.category}</span>
