@@ -84,6 +84,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
   const [showProperties, setShowProperties] = useState(false)
   
   // Timeline State
+  const [timelineHeight, setTimelineHeight] = useState(300)
   const [zoom, setZoom] = useState(100)
   const [tracks, setTracks] = useState([
     { id: 'v2', type: 'text', name: 'Captions', locked: false, hidden: false, muted: false },
@@ -675,7 +676,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                 </button>
              )}
 
-             <div ref={previewContainerRef} style={{ containerType: 'inline-size' }} className={cn("relative bg-black rounded-lg shadow-2xl h-full max-h-full overflow-hidden flex-shrink-0 w-full", aspectMap[aspectRatio] || 'aspect-video')}>
+             <div ref={previewContainerRef} style={{ containerType: 'inline-size' }} className={cn("relative bg-black rounded-lg shadow-2xl h-full max-h-full max-w-full overflow-hidden flex-shrink-0 mx-auto", aspectMap[aspectRatio] || 'aspect-video')}>
                 {fileUrl && (
                   <video 
                     ref={videoRef}
@@ -1164,8 +1165,30 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
             )}
       </div>
 
+      {/* Resizer Handle */}
+      <div 
+         className={cn("h-1.5 w-full cursor-row-resize z-50 hover:bg-[#6366F1] transition-colors relative group shrink-0", bgMain)}
+         onMouseDown={(e) => {
+            e.preventDefault();
+            const startY = e.clientY;
+            const startHeight = timelineHeight;
+            const onMouseMove = (moveEvent: MouseEvent) => {
+               const deltaY = startY - moveEvent.clientY;
+               setTimelineHeight(Math.max(100, Math.min(window.innerHeight - 200, startHeight + deltaY)));
+            };
+            const onMouseUp = () => {
+               document.removeEventListener('mousemove', onMouseMove);
+               document.removeEventListener('mouseup', onMouseUp);
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+         }}
+      >
+         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-1 rounded bg-gray-400 group-hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+
       {/* Bottom Timeline */}
-      <div className={cn("h-[300px] border-t flex flex-col shrink-0 relative z-20", borderCol, bgPanel)}>
+      <div style={{ height: timelineHeight }} className={cn("border-t flex flex-col shrink-0 relative z-20", borderCol, bgPanel)}>
          {/* Timeline Toolbar */}
          <div className={cn("h-10 border-b flex items-center justify-between px-4", borderCol, bgSidebar)}>
             <div className="flex items-center gap-2">
