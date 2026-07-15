@@ -66,26 +66,7 @@ export async function POST(req: Request) {
     if (startTime && endTime) {
       console.log(`Extracting audio slice from ${startTime}s to ${endTime}s...`);
       try {
-    // --- SECURITY GUARD ---
-    const authHeader = req.headers.get('authorization');
-    const origin = req.headers.get('origin') || '';
-    const clientIp = req.headers.get('x-forwarded-for') || 'Unknown IP';
-    const userAgent = req.headers.get('user-agent') || 'Unknown User Agent';
-    
-    // 1. Token Check (from Frontend)
-    const isValidToken = authHeader === `Bearer ${process.env.API_SECRET_TOKEN}`;
-    
-    // 2. Origin Check (Prevent CSRF / external bots)
-    // Only allow if no origin (cURL with token) OR if it matches our expected domains
-    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
-    const isVercel = origin.includes('.vercel.app') || origin.includes('skillizee');
-    const isValidOrigin = !origin || isLocal || isVercel;
 
-    if (!isValidToken || !isValidOrigin) {
-      console.warn(`[SECURITY REJECTED] Bot or unauthorized access attempt. IP: ${clientIp}, Origin: ${origin}, UA: ${userAgent}`);
-      return NextResponse.json({ error: 'Unauthorized access. Bot traffic rejected.' }, { status: 403 });
-    }
-    // ----------------------
 
         // -vn removes video. -c:a aac is universally supported by ffmpeg builds. We save as .mp4 container for audio to ensure compatibility if mp3 fails.
         // Wait, Gemini File API supports mp3, wav, aac, m4a. We will use aac in an m4a container.
@@ -116,17 +97,21 @@ export async function POST(req: Request) {
       await unlink(finalUploadPath).catch(() => {});
     }
 
-    let currentFile = await fileManager.getFile(uploadResult.file.name);
-    while (currentFile.state === "PROCESSING") {
-      await new Promise(r => setTimeout(r, 2000));
-      currentFile = await fileManager.getFile(uploadResult.file.name);
-    }
-    
-    if (currentFile.state === "FAILED") {
-      throw new Error("Video processing failed in Gemini");
+    if (uploadMime.startsWith('video/')) {
+      let currentFile = await fileManager.getFile(uploadResult.file.name);
+      while (currentFile.state === "PROCESSING") {
+        await new Promise(r => setTimeout(r, 2000));
+        currentFile = await fileManager.getFile(uploadResult.file.name);
+      }
+      if (currentFile.state === "FAILED") {
+        throw new Error("Media processing failed in Gemini");
+      }
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
 
     const duration = parseFloat(endTime) - parseFloat(startTime);
     const prompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this audio.
@@ -160,26 +145,7 @@ Return ONLY valid JSON without markdown formatting.`;
 
     let parsedCaptions = [];
     try {
-    // --- SECURITY GUARD ---
-    const authHeader = req.headers.get('authorization');
-    const origin = req.headers.get('origin') || '';
-    const clientIp = req.headers.get('x-forwarded-for') || 'Unknown IP';
-    const userAgent = req.headers.get('user-agent') || 'Unknown User Agent';
-    
-    // 1. Token Check (from Frontend)
-    const isValidToken = authHeader === `Bearer ${process.env.API_SECRET_TOKEN}`;
-    
-    // 2. Origin Check (Prevent CSRF / external bots)
-    // Only allow if no origin (cURL with token) OR if it matches our expected domains
-    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
-    const isVercel = origin.includes('.vercel.app') || origin.includes('skillizee');
-    const isValidOrigin = !origin || isLocal || isVercel;
 
-    if (!isValidToken || !isValidOrigin) {
-      console.warn(`[SECURITY REJECTED] Bot or unauthorized access attempt. IP: ${clientIp}, Origin: ${origin}, UA: ${userAgent}`);
-      return NextResponse.json({ error: 'Unauthorized access. Bot traffic rejected.' }, { status: 403 });
-    }
-    // ----------------------
 
       const cleaned = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
       parsedCaptions = JSON.parse(cleaned);

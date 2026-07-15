@@ -62,26 +62,7 @@ export async function POST(req: Request) {
     let finalUploadPath = tempFilePath;
     console.log("Compressing video before sending to Gemini...");
     try {
-    // --- SECURITY GUARD ---
-    const authHeader = req.headers.get('authorization');
-    const origin = req.headers.get('origin') || '';
-    const clientIp = req.headers.get('x-forwarded-for') || 'Unknown IP';
-    const userAgent = req.headers.get('user-agent') || 'Unknown User Agent';
-    
-    // 1. Token Check (from Frontend)
-    const isValidToken = authHeader === `Bearer ${process.env.API_SECRET_TOKEN}`;
-    
-    // 2. Origin Check (Prevent CSRF / external bots)
-    // Only allow if no origin (cURL with token) OR if it matches our expected domains
-    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
-    const isVercel = origin.includes('.vercel.app') || origin.includes('skillizee');
-    const isValidOrigin = !origin || isLocal || isVercel;
 
-    if (!isValidToken || !isValidOrigin) {
-      console.warn(`[SECURITY REJECTED] Bot or unauthorized access attempt. IP: ${clientIp}, Origin: ${origin}, UA: ${userAgent}`);
-      return NextResponse.json({ error: 'Unauthorized access. Bot traffic rejected.' }, { status: 403 });
-    }
-    // ----------------------
 
         await execPromise(`"${ffmpegInstaller.path}" -i "${tempFilePath}" -vf scale=480:-2 -r 15 -c:v libx264 -preset ultrafast -crf 35 -c:a aac -b:a 64k "${compressedPath}" -y`);
         finalUploadPath = compressedPath;
@@ -120,7 +101,10 @@ export async function POST(req: Request) {
     }
 
     // Analyze video
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-pro",
+      generationConfig: { responseMimeType: "application/json" }
+    });
 
     const prompt = `Analyze this video thoroughly. It is a podcast or talking head video.
 ${context ? `The user provided the following context about the video: "${context}"` : ''}
@@ -169,26 +153,7 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
 
     let parsedClips = [];
     try {
-    // --- SECURITY GUARD ---
-    const authHeader = req.headers.get('authorization');
-    const origin = req.headers.get('origin') || '';
-    const clientIp = req.headers.get('x-forwarded-for') || 'Unknown IP';
-    const userAgent = req.headers.get('user-agent') || 'Unknown User Agent';
-    
-    // 1. Token Check (from Frontend)
-    const isValidToken = authHeader === `Bearer ${process.env.API_SECRET_TOKEN}`;
-    
-    // 2. Origin Check (Prevent CSRF / external bots)
-    // Only allow if no origin (cURL with token) OR if it matches our expected domains
-    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
-    const isVercel = origin.includes('.vercel.app') || origin.includes('skillizee');
-    const isValidOrigin = !origin || isLocal || isVercel;
 
-    if (!isValidToken || !isValidOrigin) {
-      console.warn(`[SECURITY REJECTED] Bot or unauthorized access attempt. IP: ${clientIp}, Origin: ${origin}, UA: ${userAgent}`);
-      return NextResponse.json({ error: 'Unauthorized access. Bot traffic rejected.' }, { status: 403 });
-    }
-    // ----------------------
 
       const cleaned = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
       parsedClips = JSON.parse(cleaned);

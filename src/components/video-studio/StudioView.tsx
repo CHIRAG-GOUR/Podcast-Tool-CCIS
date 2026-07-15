@@ -326,7 +326,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
       </div>
 
       {/* Main Layout */}
-      <div className="flex-1 flex overflow-hidden min-h-[500px] pt-2">
+      <div className="flex-1 flex overflow-hidden min-h-[250px] pt-2">
         
         {/* Left Asset Manager */}
         <aside className={cn("w-80 flex flex-col border-r shrink-0 overflow-hidden", borderCol, bgSidebar)}>
@@ -1178,7 +1178,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
             const startHeight = timelineHeight;
             const onMouseMove = (moveEvent: MouseEvent) => {
                const deltaY = startY - moveEvent.clientY;
-               setTimelineHeight(Math.max(100, Math.min(window.innerHeight - 500, startHeight + deltaY)));
+               setTimelineHeight(Math.max(100, Math.min(window.innerHeight - 300, startHeight + deltaY)));
             };
             const onMouseUp = () => {
                document.removeEventListener('mousemove', onMouseMove);
