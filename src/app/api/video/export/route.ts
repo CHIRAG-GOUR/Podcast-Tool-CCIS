@@ -46,8 +46,8 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
     // Format: Bold, Italic, BorderStyle, Outline, Shadow, Spacing
     let styleProps = '-1,0,1,0,8,0';
     
-    let activeColor = '&H0000FFFF&'; // Yellow BGR
-    let inactiveColor = '&H00FFFFFF&'; // White BGR
+    let activeColor = '&H00FFFF&'; // Yellow BGR
+    let inactiveColor = '&HFFFFFF&'; // White BGR
     let activeScale = false;
 
     if (preset === 'hormozi' || preset === 'opus') {
@@ -55,85 +55,85 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         baseFontSize = fontSize;
         colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000';
         styleProps = '-1,0,1,3,10,0'; // Outline=3, Shadow=10
-        activeColor = '&H0000FFFF&'; // Bright Yellow
-        inactiveColor = '&H00FFFFFF&';
+        activeColor = '&H00FFFF&'; // Bright Yellow
+        inactiveColor = '&HFFFFFF&';
         activeScale = true;
     } else if (preset === 'modern-clean') {
         fontName = 'Inter';
         baseFontSize = Math.round(fontSize * 0.8);
         colors = '&H00000000,&H000000FF,&H00000000,&HFFFFFFFF'; // Black text, White background
         styleProps = '0,0,3,0,0,0'; // BorderStyle=3 (Opaque box)
-        activeColor = '&H00F6823B&'; // Blue highlight (BGR format: F6 82 3B -> 3B82F6)
-        inactiveColor = '&H00000000&'; // Black
+        activeColor = '&HF6823B&'; // Blue highlight (BGR format: F6 82 3B -> 3B82F6)
+        inactiveColor = '&H000000&'; // Black
     } else if (preset === 'paper-cut') {
         fontName = 'Courier New';
         baseFontSize = fontSize;
         colors = '&H001A1A1A,&H000000FF,&H00000000,&HFFF7FBFD'; // Almost black text, off-white background box
         styleProps = '-1,0,3,0,2,0'; // BorderStyle=3
-        activeColor = '&H00481DE1&'; // Rose (BGR format for E11D48 -> 48 1D E1)
-        inactiveColor = '&H001A1A1A&';
+        activeColor = '&H481DE1&'; // Rose (BGR format for E11D48 -> 48 1D E1)
+        inactiveColor = '&H1A1A1A&';
         activeScale = true;
     } else if (preset === 'unusual-paper') {
         fontName = 'Georgia';
         baseFontSize = fontSize;
         colors = '&H00F5F5F5,&H000000FF,&H00FFFFFF,&HFF111111'; // Off-white text, dark background box
         styleProps = '-1,0,3,2,0,0'; // BorderStyle=3, Outline=2 (adds border to the box)
-        activeColor = '&H0024BFFB&'; // Amber (FBBF24 -> 24 BF FB)
-        inactiveColor = '&H00F5F5F5&';
+        activeColor = '&H24BFFB&'; // Amber (FBBF24 -> 24 BF FB)
+        inactiveColor = '&HF5F5F5&';
     } else if (preset === 'beast') {
         fontName = 'Impact';
         baseFontSize = Math.round(fontSize * 1.2);
         colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000';
         styleProps = '-1,-1,1,6,4,0'; // Outline=6, Shadow=4, Italic=-1
-        activeColor = '&H00FFFF00&'; // Cyan
+        activeColor = '&HFFFF00&'; // Cyan
         activeScale = true;
     } else if (preset === 'youtube') {
         fontName = 'Arial';
         baseFontSize = Math.round(fontSize * 0.6);
         colors = '&H00FFFFFF,&H000000FF,&H00000000,&HB3000000';
         styleProps = '-1,0,3,0,0,0'; 
-        activeColor = '&H00FFFFFF&';
-        inactiveColor = '&H00FFFFFF&';
+        activeColor = '&HFFFFFF&';
+        inactiveColor = '&HFFFFFF&';
     } else if (preset === 'tiktok') {
         fontName = 'Inter';
         baseFontSize = Math.round(fontSize * 0.9);
         colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000';
         styleProps = '-1,0,1,3,0,0'; // Outline=3
-        activeColor = '&H000000FF&'; // Red
+        activeColor = '&H0000FF&'; // Red
     } else if (preset === 'netflix') {
         fontName = 'Arial';
         baseFontSize = Math.round(fontSize * 0.8);
         colors = '&H0000FFFF,&H000000FF,&H00000000,&H00000000';
         styleProps = '-1,0,1,0,2,0'; // Shadow=2
-        activeColor = '&H0000FFFF&';
-        inactiveColor = '&H0000FFFF&';
+        activeColor = '&H00FFFF&';
+        inactiveColor = '&H00FFFF&';
     } else if (preset === 'ali') {
         fontName = 'Inter';
         baseFontSize = Math.round(fontSize * 0.9);
         colors = '&H00FFFFFF,&H000000FF,&H00000000,&H00000000';
         styleProps = '-1,0,1,0,5,0'; // Shadow=5
-        activeColor = '&H0000A5FF&'; // Orange
+        activeColor = '&H00A5FF&'; // Orange
         activeScale = true;
     } else if (preset === 'neon') {
         fontName = 'Inter';
         baseFontSize = fontSize;
         colors = '&H00FFFFFF,&H000000FF,&H00FF00FF,&H00000000';
         styleProps = '-1,-1,1,5,0,0'; // Magenta Outline
-        activeColor = '&H00FFFF00&'; // Cyan
+        activeColor = '&HFFFF00&'; // Cyan
     } else if (preset === 'minimalist') {
         fontName = 'Inter';
         baseFontSize = fontSize;
         colors = '&H00D3D3D3,&H000000FF,&H00000000,&H00000000';
         styleProps = '0,0,1,0,0,0'; // No bold, No shadow
-        inactiveColor = '&H00D3D3D3&'; // LightGray
-        activeColor = '&H00000000&'; // Black
+        inactiveColor = '&HD3D3D3&'; // LightGray
+        activeColor = '&H000000&'; // Black
     } else if (preset === 'cinematic') {
         fontName = 'Georgia';
         baseFontSize = Math.round(fontSize * 0.8);
         colors = '&H80FFFFFF,&H000000FF,&H00000000,&H00000000'; 
         styleProps = '0,-1,1,0,4,2'; 
-        inactiveColor = '&H80FFFFFF&';
-        activeColor = '&H00FFFFFF&'; 
+        inactiveColor = '&HFFFFFF&';
+        activeColor = '&HFFFFFF&'; 
     }
     
     // IMPORTANT: Alignment is 2 (Bottom-Center). MarginV pushes it up from the bottom.
@@ -241,7 +241,7 @@ export async function POST(req: Request) {
     let vfStr = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}`;
 
     if (captions.length > 0) {
-        const assContent = generateAssFile(captions, targetWidth, targetHeight);
+        const assContent = generateAssFile(captions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize);
         await writeFile(tempFilterPath, assContent, 'utf-8');
         const fontsDir = join(process.cwd(), 'public', 'fonts').replace(/\\/g, '/').replace(/:/g, '\\:');
         const safeAssPath = tempFilterPath.replace(/\\/g, '/').replace(/:/g, '\\:');
