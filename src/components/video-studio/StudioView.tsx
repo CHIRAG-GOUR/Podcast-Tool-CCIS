@@ -879,9 +879,48 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
                   {activeClip && activeClip.type === 'text' && activeClip.transform && activeClip.style && (
                      <>
-                        <div className="space-y-4">
-                           <h4 className={cn("text-xs font-bold uppercase tracking-wider", textMuted)}>Text Content</h4>
-                           <textarea value={activeClip.text} onChange={e => updateActiveClipStyle({ ...activeClip.style, text: e.target.value })} className={cn("w-full p-2 text-sm rounded border", bgMain, borderCol, textHighlight)} rows={3} />
+                        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin">
+                           <h4 className={cn("text-xs font-bold uppercase tracking-wider sticky top-0 py-1 bg-opacity-90 backdrop-blur z-10", textMuted, bgSidebar)}>Generated Captions</h4>
+                           {activeClip.chunks && activeClip.chunks.map((chunk: any, cIdx: number) => (
+                               <div key={cIdx} className="space-y-1">
+                                   <div className={cn("text-[8px] flex justify-between", textMuted)}>
+                                       <span>{chunk.start.toFixed(1)}s</span>
+                                       <span>{chunk.end.toFixed(1)}s</span>
+                                   </div>
+                                   <textarea
+                                       value={chunk.text}
+                                       onChange={(e) => {
+                                           const newText = e.target.value;
+                                           const newClips = [...projectClips];
+                                           const clipIdx = newClips.findIndex(c => c.id === activeClip.id);
+                                           if (clipIdx > -1) {
+                                               const targetChunk = newClips[clipIdx].chunks[cIdx];
+                                               targetChunk.text = newText;
+                                               
+                                               const newWordsStr = newText.split(/\s+/).filter(w => w.length > 0);
+                                               const oldWords = targetChunk.words || [];
+                                               const newWords = [];
+                                               
+                                               for (let i = 0; i < newWordsStr.length; i++) {
+                                                   if (i < oldWords.length) {
+                                                       newWords.push({ ...oldWords[i], word: newWordsStr[i] });
+                                                   } else {
+                                                       const lastWord = oldWords[oldWords.length - 1] || { start: targetChunk.start, end: targetChunk.end };
+                                                       newWords.push({ word: newWordsStr[i], start: lastWord.end, end: lastWord.end + 0.5 });
+                                                   }
+                                               }
+                                               targetChunk.words = newWords;
+                                               setProjectClips(newClips);
+                                           }
+                                       }}
+                                       className={cn("w-full p-2 text-xs rounded border transition-colors", bgMain, borderCol, textHighlight, "focus:border-[#6366F1] outline-none")}
+                                       rows={2}
+                                   />
+                               </div>
+                           ))}
+                           {(!activeClip.chunks || activeClip.chunks.length === 0) && (
+                               <div className={cn("text-xs text-center p-4", textMuted)}>No captions generated yet.</div>
+                           )}
                         </div>
                         <div className="space-y-4">
                            <h4 className={cn("text-xs font-bold uppercase tracking-wider", textMuted)}>Typography</h4>
