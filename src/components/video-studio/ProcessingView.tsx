@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 interface ProcessingViewProps {
   file: File | null
   context?: string
-  onComplete: (clips: any[]) => void
+  onComplete: (data: any) => void
   onCancel?: () => void
 }
 
@@ -62,7 +62,7 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
         clearInterval(interval);
         setCurrentStepIndex(STEPS.length); // complete all steps
         setTimeout(() => {
-          onComplete(data.clips || []);
+          onComplete(data);
         }, 1000);
 
       } catch (err: any) {

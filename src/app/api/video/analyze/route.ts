@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { GoogleAIFileManager } from '@google/generative-ai/server';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
@@ -44,43 +44,53 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No video file provided' }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not defined");
+    const analyzeApiKey = process.env.GEMINI_API_KEY_ANALYZE || process.env.GEMINI_API_KEY;
+    const captionsApiKey = process.env.GEMINI_API_KEY_CAPTIONS || process.env.GEMINI_API_KEY;
+    if (!analyzeApiKey || !captionsApiKey) {
+      throw new Error("Gemini API keys are not defined (GEMINI_API_KEY_ANALYZE / GEMINI_API_KEY_CAPTIONS)");
     }
 
     // Save file locally to temp dir
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const tempFilePath = join(tmpdir(), `${uuidv4()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
-    const compressedPath = join(tmpdir(), `${uuidv4()}-compressed.mp4`);
+    const compressedPath = join(tmpdir(), `${uuidv4()}-compressed.m4a`);
     
     await writeFile(tempFilePath, buffer);
     console.log(`Saved temp video to ${tempFilePath}`);
 
-    // Compress video massively to speed up Gemini upload and processing
+    // Extract audio only to drastically speed up Gemini upload and processing
     let finalUploadPath = tempFilePath;
-    console.log("Compressing video before sending to Gemini...");
+    let finalMimeType = file.type;
+    console.log("Extracting audio before sending to Gemini...");
     try {
-
-
-        await execPromise(`"${ffmpegInstaller.path}" -i "${tempFilePath}" -vf scale=480:-2 -r 15 -c:v libx264 -preset ultrafast -crf 35 -c:a aac -b:a 64k "${compressedPath}" -y`);
+        await execPromise(`"${ffmpegInstaller.path}" -i "${tempFilePath}" -vn -c:a aac -b:a 32k "${compressedPath}" -y`);
         finalUploadPath = compressedPath;
-        console.log("Compression finished successfully.");
+        finalMimeType = "audio/mp4";
+        console.log("Audio extraction finished successfully.");
     } catch (err) {
-        console.error("Compression failed, using original file:", err);
+        console.error("Audio extraction failed, using original file:", err);
     }
 
     // Upload to Gemini
-    const fileManager = new GoogleAIFileManager(apiKey);
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const analyzeFileManager = new GoogleAIFileManager(analyzeApiKey);
+    const analyzeGenAI = new GoogleGenerativeAI(analyzeApiKey);
     
-    const uploadResult = await fileManager.uploadFile(finalUploadPath, {
-      mimeType: file.type,
-      displayName: file.name,
-    });
+    const captionsFileManager = new GoogleAIFileManager(captionsApiKey);
+    const captionsGenAI = new GoogleGenerativeAI(captionsApiKey);
     
-    console.log(`Uploaded file to Gemini: ${uploadResult.file.name}`);
+    const [analyzeUpload, captionsUpload] = await Promise.all([
+      analyzeFileManager.uploadFile(finalUploadPath, {
+        mimeType: finalMimeType,
+        displayName: file.name + "_analyze",
+      }),
+      captionsFileManager.uploadFile(finalUploadPath, {
+        mimeType: finalMimeType,
+        displayName: file.name + "_captions",
+      })
+    ]);
+    
+    console.log(`Uploaded files to Gemini: ${analyzeUpload.file.name}, ${captionsUpload.file.name}`);
 
     // Clean up temp file
     await unlink(tempFilePath).catch(() => {});
@@ -89,21 +99,46 @@ export async function POST(req: Request) {
     }
 
     // Wait for the video to be processed by Gemini
-    let currentFile = await fileManager.getFile(uploadResult.file.name);
-    while (currentFile.state === "PROCESSING") {
-      console.log("Waiting for video processing...");
-      await new Promise(r => setTimeout(r, 2000));
-      currentFile = await fileManager.getFile(uploadResult.file.name);
-    }
-    
-    if (currentFile.state === "FAILED") {
-      throw new Error("Video processing failed in Gemini");
-    }
+    const waitForFile = async (manager: GoogleAIFileManager, name: string) => {
+        let currentFile = await manager.getFile(name);
+        while (currentFile.state === "PROCESSING") {
+            await new Promise(r => setTimeout(r, 2000));
+            currentFile = await manager.getFile(name);
+        }
+        if (currentFile.state === "FAILED") throw new Error("Video processing failed in Gemini");
+        return currentFile;
+    };
+
+    console.log("Waiting for video processing on both pipelines...");
+    await Promise.all([
+        waitForFile(analyzeFileManager, analyzeUpload.file.name),
+        waitForFile(captionsFileManager, captionsUpload.file.name)
+    ]);
 
     // Analyze video
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const analyzeModel = analyzeGenAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
+      generationConfig: { responseMimeType: "application/json" },
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      ]
+    });
+    
+    const captionsModel = captionsGenAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
+      generationConfig: { responseMimeType: "application/json" },
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      ]
+    });
 
-    const prompt = `Analyze this video thoroughly. It is a podcast or talking head video.
+    const prompt = `Analyze this media thoroughly. It is a podcast or talking head session.
 ${context ? `The user provided the following context about the video: "${context}"` : ''}
 Your goal is to act as a world-class social media strategist and video editor. Extract between 1 and 10 of the most highly-engaging, viral, and retention-catching moments. 
 
@@ -132,26 +167,50 @@ Return ONLY a valid JSON array. Each object in the array must have:
 
 Do NOT include markdown formatting or backticks. Just pure JSON.`;
 
-    const result = await model.generateContent([
+    const resultPromise = analyzeModel.generateContent([
       {
         fileData: {
-          mimeType: uploadResult.file.mimeType,
-          fileUri: uploadResult.file.uri
+          mimeType: analyzeUpload.file.mimeType,
+          fileUri: analyzeUpload.file.uri
         }
       },
       { text: prompt }
     ]);
 
+    const captionsPrompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this media.
+CRITICAL INSTRUCTION: Break the transcription into short phrases (3-5 words) suitable for fast-paced Captions.ai style videos.
+
+Return a JSON array of phrase objects. Each object must have:
+- "text": The full phrase spoken.
+- "start": Phrase start time (float, seconds).
+- "end": Phrase end time (float, seconds).
+
+Return ONLY valid JSON without markdown formatting.`;
+
+    const captionsPromise = captionsModel.generateContent([
+      {
+        fileData: {
+          mimeType: captionsUpload.file.mimeType,
+          fileUri: captionsUpload.file.uri
+        }
+      },
+      { text: captionsPrompt }
+    ]);
+
+    const [result, captionsResult] = await Promise.all([resultPromise, captionsPromise]);
+
     const rawResponse = result.response.text();
-    console.log("Raw Gemini Response:", rawResponse);
+    const rawCaptionsResponse = captionsResult.response.text();
+    
+    console.log("Raw Gemini Response (Clips):", rawResponse.substring(0, 200) + '...');
+    console.log("Raw Gemini Response (Captions):", rawCaptionsResponse.substring(0, 200) + '...');
     
     // Clean up from Gemini
-    await fileManager.deleteFile(uploadResult.file.name).catch(console.error);
+    await analyzeFileManager.deleteFile(analyzeUpload.file.name).catch(console.error);
+    await captionsFileManager.deleteFile(captionsUpload.file.name).catch(console.error);
 
     let parsedClips = [];
     try {
-
-
       const cleaned = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
       const start = cleaned.indexOf('[');
       const end = cleaned.lastIndexOf(']');
@@ -161,12 +220,33 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
           parsedClips = JSON.parse(cleaned);
       }
     } catch (e) {
-      console.error("Failed to parse Gemini output:", e);
-      // Fallback
+      console.error("Failed to parse Gemini output (clips):", e);
       return NextResponse.json({ error: "Failed to parse AI output." }, { status: 500 });
     }
 
-    return NextResponse.json({ clips: parsedClips });
+    let parsedCaptions = [];
+    try {
+      const cleanedCaptions = rawCaptionsResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+      let substringToParse = cleanedCaptions;
+      const startCaptions = cleanedCaptions.indexOf('[');
+      const endCaptions = cleanedCaptions.lastIndexOf(']');
+      if (startCaptions !== -1 && endCaptions !== -1) {
+          substringToParse = cleanedCaptions.substring(startCaptions, endCaptions + 1);
+      }
+      try {
+          parsedCaptions = JSON.parse(substringToParse);
+      } catch(parseError) {
+          // If truncated, attempt to fix
+          const lastBrace = substringToParse.lastIndexOf('}');
+          if (lastBrace !== -1) {
+             parsedCaptions = JSON.parse(substringToParse.substring(0, lastBrace + 1) + ']');
+          }
+      }
+    } catch (e) {
+      console.error("Failed to parse Gemini output (captions):", e);
+    }
+
+    return NextResponse.json({ clips: parsedClips, captions: parsedCaptions });
   } catch (error: any) {
     console.error('Video Analysis API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });

@@ -62,7 +62,7 @@ const CopyButton = ({ text }: { text: string }) => {
 };
 
 
-export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) {
+export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions, onBack }: any) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [videoDuration, setVideoDuration] = useState(0)
@@ -94,7 +94,24 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
 
   // AI Clips & Project Clips
   const [aiClips, setAiClips] = useState(initialClips.length > 0 ? initialClips : [])
-  const [projectClips, setProjectClips] = useState<any[]>([{ id: 'c1', trackId: 'v1', start: 0, end: 15, duration: 15, title: 'Podcast Source' }])
+  const [projectClips, setProjectClips] = useState<any[]>(() => {
+    const defaultClips: any[] = [{ id: 'c1', trackId: 'v1', start: 0, end: 15, duration: 15, title: 'Podcast Source' }];
+    if (initialCaptions && initialCaptions.length > 0) {
+      defaultClips.push({
+          id: 'cap_' + Date.now(),
+          trackId: 'v2', type: 'text',
+          start: 0, 
+          end: 15, 
+          duration: 15,
+          title: 'Auto Captions',
+          text: '',
+          chunks: initialCaptions,
+          transform: { x: 0, y: 150, width: 600, height: 60, scale: 100, rotation: 0 },
+          style: { fontFamily: 'Inter', fontSize: 48, preset: 'dark' }
+      });
+    }
+    return defaultClips;
+  });
   const [activeClipId, setActiveClipId] = useState<string | null>('c1')
   
   // History
@@ -106,7 +123,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
   
   const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false)
-  const [captionsGenerated, setCaptionsGenerated] = useState(false)
+  const [captionsGenerated, setCaptionsGenerated] = useState(!!(initialCaptions && initialCaptions.length > 0))
   
   const activeClip = projectClips.find(c => c.id === activeClipId)
   
@@ -420,11 +437,13 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                              <span>{clip.category}</span>
                           </div>
                           <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <button 
-                               onClick={() => {
+                               <button onClick={() => {
                                   const duration = (clip.end_time || 15) - (clip.start_time || 0);
                                   setVideoDuration(duration);
-                                  setProjectClips([{
+                                  const mediaStart = clip.start_time || 0;
+                                  const mediaEnd = clip.end_time || 15;
+                                  
+                                  const newClips: any[] = [{
                                       id: 'c' + Date.now(),
                                       trackId: 'v1',
                                       type: 'video',
@@ -432,10 +451,41 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                       end: duration,
                                       duration: duration,
                                       title: clip.title || 'AI Clip',
-                                      mediaStart: clip.start_time || 0,
-                                      mediaEnd: clip.end_time || 15
-                                  }]);
-                                  setCaptionsGenerated(false);
+                                      mediaStart: mediaStart,
+                                      mediaEnd: mediaEnd
+                                  }];
+
+                                  if (initialCaptions && initialCaptions.length > 0) {
+                                      const validChunks = initialCaptions.filter((c: any) => c.end > mediaStart && c.start < mediaEnd);
+                                      const shiftedChunks = validChunks.map((c: any) => ({
+                                          start: Math.max(0, c.start - mediaStart),
+                                          end: Math.max(0, c.end - mediaStart),
+                                          text: c.text,
+                                          words: c.words ? c.words.map((w: any) => ({
+                                              word: w.word,
+                                              start: Math.max(0, w.start - mediaStart),
+                                              end: Math.max(0, w.end - mediaStart)
+                                          })) : []
+                                      }));
+                                      
+                                      newClips.push({
+                                          id: 'cap_' + Date.now(),
+                                          trackId: 'v2', type: 'text',
+                                          start: 0, 
+                                          end: duration, 
+                                          duration: duration,
+                                          title: 'Auto Captions',
+                                          text: '',
+                                          chunks: shiftedChunks,
+                                          transform: { x: 0, y: 150, width: 600, height: 60, scale: 100, rotation: 0 },
+                                          style: { fontFamily: 'Inter', fontSize: 48, preset: 'dark' }
+                                      });
+                                      setCaptionsGenerated(true);
+                                  } else {
+                                      setCaptionsGenerated(false);
+                                  }
+                                  
+                                  setProjectClips(newClips);
                                   setCurrentTime(0);
                                   if (videoRef.current) {
                                       videoRef.current.currentTime = clip.start_time || 0;
@@ -470,94 +520,59 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                <MessageSquare className={cn("w-5 h-5", textMuted)} />
                             </div>
                             <h3 className={cn("text-sm font-semibold mb-1", textHighlight)}>Auto-Captions</h3>
-                            <p className={cn("text-xs mb-4 max-w-[200px]", textMuted)}>Generate highly accurate, animated captions perfectly synced to the audio.</p>
+                            <p className={cn("text-xs mb-4 max-w-[200px]", textMuted)}>Click below to add the AI-generated captions to your timeline.</p>
                             <button 
-                               onClick={async () => {
-                                 if (!file) {
-                                   alert("Original video file missing. Please re-upload.");
+                               onClick={() => {
+                                 if (!initialCaptions || initialCaptions.length === 0) {
+                                   alert("No captions were generated by the backend.");
                                    return;
                                  }
                                  
-                                 setIsGeneratingCaptions(true);
+                                 const targetClip = projectClips.find(c => c.id === activeClipId) || projectClips[0];
+                                 const mediaStart = targetClip.mediaStart || 0;
+                                 const mediaEnd = targetClip.mediaEnd || targetClip.duration;
                                  
-                                 try {
-                                   const targetClip = projectClips.find(c => c.id === activeClipId) || projectClips[0];
-                                   
-                                   const mediaStart = targetClip.mediaStart || 0;
-                                   const mediaEnd = targetClip.mediaEnd || targetClip.duration;
-                                   
-                                   const formData = new FormData();
-                                   formData.append("video", file);
-                                   formData.append("start_time", mediaStart.toString());
-                                   formData.append("end_time", mediaEnd.toString());
-                                   
-                                   const res = await fetch("/api/video/transcribe", {
-                                     headers: {
-                                       "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}`
-                                     },
-                                     method: "POST",
-                                     body: formData,
-                                   });
-                                   
-                                   if (!res.ok) {
-                                     throw new Error("Failed to transcribe video");
-                                   }
-                                   
-                                   const data = await res.json();
-                                   const generated = data.captions || [];
-                                   
-                                   if (generated.length === 0) {
-                                     throw new Error("No speech detected or API returned empty.");
-                                   }
-                                   
-                                   // Gemini returns chunks relative to the full video time (e.g. 31s-33s).
-                                   // We want the chunk's `start` to be relative to the timeline `0` (e.g. 1s-3s).
-                                   // Some LLMs might return local time (0s-2s), so we check that.
-                                   const isLocal = generated[0]?.start < mediaStart && generated[0]?.start < 10;
-                                   
-                                   const newCaptionClip = {
-                                      id: 'cap_' + Date.now(),
-                                      trackId: 'v2', type: 'text',
-                                      start: targetClip.start, 
-                                      end: targetClip.start + targetClip.duration, 
-                                      duration: targetClip.duration,
-                                      title: 'Auto Captions',
-                                      text: '', // Computed dynamically during render
-                                      chunks: generated.map((c: any) => ({
-                                         start: targetClip.start + (isLocal ? (c.start || 0) : Math.max(0, (c.start || 0) - mediaStart)),
-                                         end: targetClip.start + (isLocal ? (c.end || 2) : Math.max(0, (c.end || 2) - mediaStart)),
-                                         text: c.text,
-                                         words: c.words ? c.words.map((w: any) => ({
-                                            word: w.word,
-                                            start: targetClip.start + (isLocal ? (w.start || 0) : Math.max(0, (w.start || 0) - mediaStart)),
-                                            end: targetClip.start + (isLocal ? (w.end || 2) : Math.max(0, (w.end || 2) - mediaStart))
-                                         })) : []
-                                      })),
-                                      transform: { x: 0, y: (previewContainerRef.current?.clientHeight || 400) * 0.35, width: 600, height: 60, scale: 100, rotation: 0 },
-                                      style: { fontFamily: 'Inter', fontSize: 48, preset: 'dark' }
-                                   };
-                                   
-                                   setProjectClips(p => [...p, newCaptionClip]);
-                                   setActiveClipId(newCaptionClip.id);
-                                   setCaptionsGenerated(true);
-                                 } catch (err: any) {
-                                   console.error("Transcription error:", err);
-                                   alert("Error generating captions: " + err.message + ". Please try again.");
-                                 } finally {
-                                   setIsGeneratingCaptions(false);
-                                 }
+                                 const validChunks = initialCaptions.filter((c: any) => c.end > mediaStart && c.start < mediaEnd);
+                                 const newCaptionClip = {
+                                    id: 'cap_' + Date.now(),
+                                    trackId: 'v2', type: 'text',
+                                    start: targetClip.start, 
+                                    end: targetClip.start + targetClip.duration, 
+                                    duration: targetClip.duration,
+                                    title: 'Auto Captions',
+                                    text: '',
+                                    chunks: validChunks.map((c: any) => ({
+                                       start: targetClip.start + Math.max(0, (c.start || 0) - mediaStart),
+                                       end: targetClip.start + Math.max(0, (c.end || 2) - mediaStart),
+                                       text: c.text,
+                                       words: c.words ? c.words.map((w: any) => ({
+                                          word: w.word,
+                                          start: targetClip.start + Math.max(0, (w.start || 0) - mediaStart),
+                                          end: targetClip.start + Math.max(0, (w.end || 2) - mediaStart)
+                                       })) : []
+                                    })),
+                                    transform: { x: 0, y: 150, width: 600, height: 60, scale: 100, rotation: 0 },
+                                    style: { fontFamily: 'Inter', fontSize: 48, preset: 'dark' }
+                                 };
+                                 
+                                 setProjectClips(p => [...p, newCaptionClip]);
+                                 setActiveClipId(newCaptionClip.id);
+                                 setCaptionsGenerated(true);
                                }}
                                className="bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs font-semibold px-4 py-2 rounded flex items-center gap-2"
                             >
-                              {isGeneratingCaptions ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                              {isGeneratingCaptions ? 'Analyzing Audio...' : 'Generate Captions'}
+                              <Sparkles className="w-3 h-3" />
+                              Add Captions to Timeline
                             </button>
                          </>
                       ) : (
                          <div className="w-full text-left">
                             <h3 className="text-xs font-semibold text-[#10B981] mb-2 flex items-center gap-1"><Check className="w-3 h-3"/> Captions Ready</h3>
                             <p className={cn("text-[10px] mb-4", textMuted)}>Captions have been added to track V2. Select them in the timeline to edit styles.</p>
-                            <button onClick={() => setCaptionsGenerated(false)} className="text-[10px] text-red-400 hover:text-red-500">Clear Captions</button>
+                            <button onClick={() => {
+                                setProjectClips(p => p.filter(c => c.type !== 'text'));
+                                setCaptionsGenerated(false);
+                            }} className="text-[10px] text-red-400 hover:text-red-500">Remove Captions</button>
                          </div>
                       )}
                    </div>
@@ -710,8 +725,14 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                     onLoadedMetadata={(e) => { 
                        const mainClip = projectClips.find(c => c.type === 'video');
                        if (!mainClip || mainClip.title === 'Podcast Source') {
-                           setVideoDuration(e.currentTarget.duration); 
-                           setProjectClips([{ id: 'c1', trackId: 'v1', type: 'video', start: 0, end: e.currentTarget.duration, duration: e.currentTarget.duration, title: 'Podcast Source' }]);
+                           const loadedDuration = e.currentTarget.duration;
+                           setVideoDuration(loadedDuration); 
+                           setProjectClips(prev => prev.map(c => {
+                               if (c.title === 'Podcast Source' || c.title === 'Auto Captions') {
+                                   return { ...c, end: loadedDuration, duration: loadedDuration };
+                               }
+                               return c;
+                           }));
                        }
                     }}
                     loop
@@ -724,10 +745,24 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                    let isVisible = true;
                    
                    let activeChunk: any = null;
+                   let displayWords: any[] = [];
                    if (clip.chunks && clip.chunks.length > 0) {
                       activeChunk = clip.chunks.find((ch: any) => currentTime >= ch.start && currentTime <= ch.end);
                       if (activeChunk) {
                           displayText = activeChunk.text;
+                          if (activeChunk.words && activeChunk.words.length > 0) {
+                              displayWords = activeChunk.words;
+                          } else if (activeChunk.text) {
+                              // Generate synthetic word timings for karaoke effect
+                              const wordsArr = activeChunk.text.trim().split(/\s+/);
+                              const duration = activeChunk.end - activeChunk.start;
+                              const timePerWord = duration / Math.max(1, wordsArr.length);
+                              displayWords = wordsArr.map((w: string, i: number) => ({
+                                  word: w,
+                                  start: activeChunk.start + (i * timePerWord),
+                                  end: activeChunk.start + ((i + 1) * timePerWord)
+                              }));
+                          }
                       } else {
                           const nextChunk = clip.chunks.find((ch: any) => ch.start > currentTime);
                           const prevChunk = [...clip.chunks].reverse().find((ch: any) => ch.end < currentTime);
@@ -873,15 +908,36 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 activeColor = '#000000'; // Black
                                 if (theme === 'dark') activeColor = '#ffffff';
                                 activeScale = 1;
-                            } else if (preset === 'cinematic') {
-                                baseStyle.fontFamily = 'Georgia, serif';
-                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.95)}px`;
+                            } else if (preset === 'cinematic-bold' || preset === 'cinematic') {
+                                baseStyle.fontFamily = '"Montserrat", "Arial Black", sans-serif';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 1.2)}px`;
+                                baseStyle.fontWeight = 900;
+                                baseStyle.letterSpacing = '-0.02em';
+                                baseStyle.WebkitTextStroke = '0.04em black';
+                                baseStyle.textShadow = '0 0.1em 0 rgba(0,0,0,0.8)';
+                                inactiveColor = '#E8F0FE'; // Light blue hint
+                                activeColor = '#FFFFFF'; 
+                                activeScale = 1.1;
+                            } else if (preset === 'cinematic-elegant') {
+                                baseStyle.fontFamily = '"Playfair Display", "Cinzel", "Didot", serif';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 1.1)}px`;
                                 baseStyle.fontWeight = 400;
-                                baseStyle.WebkitTextStroke = '0.022em black';
-                                baseStyle.textShadow = '0em 0.065em 0.13em rgba(0,0,0,0.8)';
+                                baseStyle.letterSpacing = '0.08em';
+                                baseStyle.textTransform = 'uppercase';
+                                baseStyle.textShadow = '0 0.05em 0.2em rgba(0,0,0,0.9)';
                                 inactiveColor = '#CCCCCC';
-                                activeColor = '#D4AF37'; // Gold
-                                activeScale = 1;
+                                activeColor = '#FFFFFF';
+                                activeScale = 1.05;
+                            } else if (preset === 'cinematic-condensed') {
+                                baseStyle.fontFamily = '"Bebas Neue", "Anton", "Oswald", "Impact", sans-serif';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 1.4)}px`;
+                                baseStyle.fontWeight = 400;
+                                baseStyle.textTransform = 'uppercase';
+                                baseStyle.letterSpacing = '0.02em';
+                                baseStyle.textShadow = '0 0.1em 0.3em rgba(0,0,0,0.9)';
+                                inactiveColor = '#FF4500'; // OrangeRed
+                                activeColor = '#FF8C00'; // DarkOrange
+                                activeScale = 1.05;
                             } else if (preset === 'skillizee') {
                                 baseStyle.fontFamily = 'Inter, sans-serif';
                                 baseStyle.fontSize = `${baseFontSize}px`;
@@ -917,12 +973,17 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 const scaleVw = (pxSize / refWidth) * 100;
                                 baseStyle.fontSize = `${scaleVw}cqw`;
                             }
+                            
+                            // Fallback color if not rendered as individual words
+                            if (!baseStyle.color) {
+                                baseStyle.color = activeColor;
+                            }
 
                             return (
                                 <div style={baseStyle}>
-                                    {activeChunk && activeChunk.words && activeChunk.words.length > 0 ? (
+                                    {displayWords.length > 0 ? (
                                         <div style={{ display: 'inline-flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
-                                            {activeChunk.words.map((w: any, idx: number) => {
+                                            {displayWords.map((w: any, idx: number) => {
                                                 const isActiveWord = currentTime >= w.start && currentTime <= w.end;
                                                 
                                                 let currentActiveColor = activeColor;
@@ -1105,7 +1166,9 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
         { id: 'netflix', name: 'Netflix', desc: 'Classic TV Subtitles' },
         { id: 'ali', name: 'Ali Abdaal', desc: 'Orange Pop' },
         { id: 'neon', name: 'Neon Glow', desc: 'Cyberpunk Aesthetic' },
-        { id: 'cinematic', name: 'Cinematic', desc: 'Elegant & Gold' }
+        { id: 'cinematic-bold', name: 'Cinematic Bold', desc: 'Chunky & Engaging' },
+        { id: 'cinematic-elegant', name: 'Cinematic Serif', desc: 'Elegant (Euphoria)' },
+        { id: 'cinematic-condensed', name: 'Cinematic Sans', desc: 'Condensed (Sunlight)' }
     ].map(preset => (
         <button 
             key={preset.id}
