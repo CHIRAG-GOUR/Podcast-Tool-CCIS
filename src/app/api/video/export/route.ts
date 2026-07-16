@@ -258,6 +258,11 @@ export async function POST(req: Request) {
     const aspectRatio = formData.get('aspect_ratio') as string || '9:16';
     const captionsRaw = formData.get('captions') as string;
     
+    const exportFormat = formData.get('export_format') as string || 'mp4';
+    const exportRes = formData.get('export_res') as string || '1080p';
+    const exportFps = formData.get('export_fps') as string || '30';
+    const exportCodec = formData.get('export_codec') as string || 'h264';
+    
     if (!file) {
       return NextResponse.json({ error: 'No video file provided' }, { status: 400 });
     }
@@ -275,34 +280,51 @@ export async function POST(req: Request) {
     const canvasW = parseFloat(formData.get('canvas_width') as string) || 0;
     const canvasH = parseFloat(formData.get('canvas_height') as string) || 0;
 
+    let baseRes = 1080;
+    if (exportRes === '2160p') baseRes = 2160;
+    else if (exportRes === '1440p') baseRes = 1440;
+    else if (exportRes === '720p') baseRes = 720;
+    else if (exportRes === '480p') baseRes = 480;
+
     let targetWidth = 1080;
     let targetHeight = 1920;
     
     if (aspectRatio === '16:9') {
-        targetWidth = 1920;
-        targetHeight = 1080;
+        targetHeight = baseRes;
+        targetWidth = Math.round(baseRes * (16/9));
+    } else if (aspectRatio === '9:16') {
+        targetWidth = baseRes;
+        targetHeight = Math.round(baseRes * (16/9));
     } else if (aspectRatio === '1:1') {
-        targetWidth = 1080;
-        targetHeight = 1080;
+        targetWidth = baseRes;
+        targetHeight = baseRes;
     } else if (aspectRatio === '4:5') {
-        targetWidth = 1080;
-        targetHeight = 1350;
+        targetWidth = baseRes;
+        targetHeight = Math.round(baseRes * (5/4));
     }
+
+    // Ensure even dimensions for FFMPEG
+    targetWidth = targetWidth + (targetWidth % 2);
+    targetHeight = targetHeight + (targetHeight % 2);
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
+    const isAudioOnly = ['mp3', 'wav', 'aac'].includes(exportFormat);
+    let ext = exportFormat;
+    if (exportFormat === 'png_seq') ext = 'mp4'; // Fallback for unsupported complex sequence output
+    
     const uniqueId = uuidv4();
     const tempVideoPath = join(tmpdir(), `${uniqueId}-input.mp4`);
     const tempFilterPath = join(tmpdir(), `${uniqueId}-filter.txt`);
-    const tempOutputPath = join(tmpdir(), `${uniqueId}-output.mp4`);
+    const tempOutputPath = join(tmpdir(), `${uniqueId}-output.${ext}`);
     
     await writeFile(tempVideoPath, buffer);
     console.log(`Saved temp video to ${tempVideoPath} for export with ratio ${targetWidth}x${targetHeight}`);
 
     let vfStr = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}`;
 
-    if (captions.length > 0) {
+    if (captions.length > 0 && !isAudioOnly) {
         const assContent = generateAssFile(captions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize, (style as any).backgroundBox);
         await writeFile(tempFilterPath, assContent, 'utf-8');
         const fontsDir = join(process.cwd(), 'public', 'fonts').replace(/\\/g, '/').replace(/:/g, '\\:');
@@ -314,16 +336,49 @@ export async function POST(req: Request) {
     const endNum = parseFloat(endTime) || 0;
     const duration = endNum - startNum;
 
+    // FFMPEG Codec Selection
+    let vCodec = 'libx264';
+    let aCodec = 'aac';
+    let extraArgs = '-preset fast -crf 23';
+    
+    if (exportFormat === 'webm') {
+        vCodec = 'libvpx-vp9';
+        aCodec = 'libopus';
+        extraArgs = '-crf 30 -b:v 0';
+    } else if (exportFormat === 'gif') {
+        vCodec = 'gif';
+        aCodec = '';
+        extraArgs = '';
+    } else {
+        if (exportCodec === 'h265') {
+            vCodec = 'libx265';
+        } else if (exportCodec === 'av1') {
+            vCodec = 'libaom-av1';
+            extraArgs = '-crf 30 -b:v 0 -strict experimental';
+        }
+    }
+
+    if (isAudioOnly) {
+       vCodec = '';
+       extraArgs = '';
+       if (exportFormat === 'mp3') { aCodec = 'libmp3lame'; ext = 'mp3'; }
+       else if (exportFormat === 'wav') { aCodec = 'pcm_s16le'; ext = 'wav'; }
+       else if (exportFormat === 'aac') { aCodec = 'aac'; ext = 'aac'; }
+    }
+
     // Build FFMPEG command
-    const ffmpegCmd = [
-        `"${ffmpegInstaller.path}" -y`,
-        `-ss ${startNum}`,
-        `-t ${duration}`,
-        `-i "${tempVideoPath}"`,
-        `-vf "${vfStr}"`,
-        `-c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k`,
-        `"${tempOutputPath}"`
-    ].join(' ');
+    let ffmpegCmd = `"${ffmpegInstaller.path}" -y -ss ${startNum} -t ${duration} -i "${tempVideoPath}"`;
+    
+    if (!isAudioOnly) {
+        ffmpegCmd += ` -vf "${vfStr}" -r ${exportFps} -c:v ${vCodec} ${extraArgs}`;
+        if (aCodec) {
+            ffmpegCmd += ` -c:a ${aCodec} -b:a 128k`;
+        }
+    } else {
+        ffmpegCmd += ` -vn -c:a ${aCodec} -b:a 192k`;
+    }
+    
+    ffmpegCmd += ` "${tempOutputPath}"`;
     
     console.log("Running FFMPEG:", ffmpegCmd);
     
@@ -339,10 +394,18 @@ export async function POST(req: Request) {
         await unlink(tempFilterPath).catch(()=>{});
         await unlink(tempOutputPath).catch(()=>{});
         
+        let contentType = 'video/mp4';
+        if (ext === 'mov') contentType = 'video/quicktime';
+        if (ext === 'webm') contentType = 'video/webm';
+        if (ext === 'gif') contentType = 'image/gif';
+        if (ext === 'mp3') contentType = 'audio/mpeg';
+        if (ext === 'wav') contentType = 'audio/wav';
+        if (ext === 'aac') contentType = 'audio/aac';
+        
         return new NextResponse(outputBuffer, {
             headers: {
-                'Content-Type': 'video/mp4',
-                'Content-Disposition': `attachment; filename="Skillizee_Export_${uniqueId.substring(0,8)}.mp4"`
+                'Content-Type': contentType,
+                'Content-Disposition': `attachment; filename="Skillizee_Export_${uniqueId.substring(0,8)}.${ext}"`
             }
         });
 

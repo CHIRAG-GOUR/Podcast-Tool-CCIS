@@ -78,7 +78,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
   const [isFullscreen, setIsFullscreen] = useState(false)
   
   // Left Panel - Asset Manager
-  const [leftTab, setLeftTab] = useState<'media'|'audio'|'text'|'ai'|'effects'>('media')
+  const [leftTab, setLeftTab] = useState<'media'|'audio'|'text'|'ai'|'social'|'effects'>('media')
   
   // Right Panel - Inspector
   const [showProperties, setShowProperties] = useState(false)
@@ -352,7 +352,8 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                    { id: 'media', icon: FolderOpen, label: 'Media' },
                    { id: 'text', icon: Type, label: 'Text' },
                    { id: 'ai', icon: Sparkles, label: 'AI Clips' },
-                   { id: 'effects', icon: Wand2, label: 'Additional Features' }
+                   { id: 'social', icon: Flame, label: 'Viral Content' },
+                   { id: 'effects', icon: Wand2, label: 'Effects' }
                  ].map(t => (
                    <button 
                      key={t.id} onClick={() => setLeftTab(t.id as any)}
@@ -468,6 +469,15 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                           })) : []
                                       }));
                                       
+                                      let preset = 'hormozi';
+                                      if (clip.caption_style) {
+                                         const styleStr = clip.caption_style.toLowerCase();
+                                         if (styleStr.includes('minimal')) preset = 'minimalist';
+                                         else if (styleStr.includes('bold')) preset = 'beast';
+                                         else if (styleStr.includes('youtube')) preset = 'youtube';
+                                         else if (styleStr.includes('tiktok')) preset = 'tiktok';
+                                      }
+
                                       newClips.push({
                                           id: 'cap_' + Date.now(),
                                           trackId: 'v2', type: 'text',
@@ -478,7 +488,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                           text: '',
                                           chunks: shiftedChunks,
                                           transform: { x: 0, y: 150, width: 600, height: 60, scale: 100, rotation: 0 },
-                                          style: { fontFamily: 'Inter', fontSize: 48, preset: 'dark' }
+                                          style: { fontFamily: 'Inter', fontSize: 48, preset: preset }
                                       });
                                       setCaptionsGenerated(true);
                                   } else {
@@ -578,57 +588,88 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                    </div>
                  )}
 
+                 {/* Social Content Tab */}
+                 {leftTab === 'social' && (
+                    <div className="space-y-6">
+                       <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Viral Content for Selected Clip</h3>
+                       {(() => {
+                           let socialClip = null;
+                           let targetVideoClip = activeClip;
+                           
+                           // If a text clip is selected (like Captions) or nothing is selected, find the relevant video clip
+                           if (!targetVideoClip || targetVideoClip.type !== 'video') {
+                               targetVideoClip = projectClips.find(c => c.type === 'video' && currentTime >= c.start && currentTime <= c.start + c.duration) || projectClips.find(c => c.type === 'video');
+                           }
+
+                           if (targetVideoClip && targetVideoClip.type === 'video') {
+                               socialClip = aiClips.find((c: any) => c.title === targetVideoClip?.title);
+                               if (!socialClip && aiClips.length > 0 && (targetVideoClip.title === 'Podcast Source' || targetVideoClip.title === 'Auto Captions')) {
+                                   socialClip = aiClips[0];
+                               }
+                           }
+
+                           if (!socialClip) {
+                               return (
+                                   <div className={cn("text-xs text-center p-4", textMuted)}>
+                                       {aiClips.length === 0 
+                                          ? "No hooks or captions generated yet. Upload and analyze a video first!"
+                                          : "Please select an AI-generated clip in the timeline to view its viral content."}
+                                   </div>
+                               );
+                           }
+
+                           return (
+                              <div className={cn("w-full p-3 rounded-lg border text-left flex flex-col gap-3", bgPanel, borderCol)}>
+                                 <div>
+                                     <div className="flex items-center justify-between mb-1">
+                                        <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Viral Title</span>
+                                        <CopyButton text={socialClip.title} />
+                                     </div>
+                                     <p className={cn("text-xs font-semibold", textHighlight)}>{socialClip.title}</p>
+                                 </div>
+                                 <div>
+                                     <div className="flex items-center justify-between mb-1">
+                                         <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>The Hook</span>
+                                         <CopyButton text={socialClip.reason} />
+                                     </div>
+                                     <p className={cn("text-[10px]", textMuted)}>{socialClip.reason}</p>
+                                 </div>
+                                 {socialClip.caption_text && (
+                                     <div>
+                                         <div className="flex items-center justify-between mb-1">
+                                             <span className={cn("text-[9px] font-bold uppercase tracking-wider text-[#6366F1]")}>On-Screen Caption</span>
+                                             <CopyButton text={socialClip.caption_text} />
+                                         </div>
+                                         <p className={cn("text-[10px] font-semibold text-[#6366F1]")}>{socialClip.caption_text}</p>
+                                     </div>
+                                 )}
+                                 {socialClip.instagram_caption && (
+                                     <div>
+                                         <div className="flex items-center justify-between mb-1">
+                                             <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Social Caption</span>
+                                             <CopyButton text={socialClip.instagram_caption} />
+                                         </div>
+                                         <p className={cn("text-[10px] whitespace-pre-wrap", textMuted)}>{socialClip.instagram_caption}</p>
+                                     </div>
+                                 )}
+                                 {socialClip.hashtags && (
+                                     <div>
+                                         <div className="flex items-center justify-between mb-1">
+                                             <span className={cn("text-[9px] font-bold uppercase tracking-wider text-[#6366F1]")}>Hashtags</span>
+                                             <CopyButton text={socialClip.hashtags} />
+                                         </div>
+                                         <p className={cn("text-[10px] font-semibold text-[#6366F1]")}>{socialClip.hashtags}</p>
+                                     </div>
+                                 )}
+                              </div>
+                           );
+                       })()}
+                    </div>
+                 )}
+
                  {/* Additional Features Tab */}
                  {leftTab === 'effects' && (
                     <div className="space-y-6">
-                       <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Generated Hooks & Captions</h3>
-                       {aiClips.length > 0 ? (
-                           <div className="space-y-4">
-                              {aiClips.map((clip: any, i: number) => (
-                                 <div key={i} className={cn("w-full p-3 rounded-lg border text-left flex flex-col gap-3", bgPanel, borderCol)}>
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1">
-                                           <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Viral Title</span>
-                                           <CopyButton text={clip.title} />
-                                        </div>
-                                        <p className={cn("text-xs font-semibold", textHighlight)}>{clip.title}</p>
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>The Hook</span>
-                                            <CopyButton text={clip.reason} />
-                                        </div>
-                                        <p className={cn("text-[10px]", textMuted)}>{clip.reason}</p>
-                                    </div>
-                                    {clip.instagram_caption && (
-                                        <div>
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className={cn("text-[9px] font-bold uppercase tracking-wider", textMuted)}>Social Caption</span>
-                                                <CopyButton text={clip.instagram_caption} />
-                                            </div>
-                                            <p className={cn("text-[10px] whitespace-pre-wrap", textMuted)}>{clip.instagram_caption}</p>
-                                        </div>
-                                    )}
-                                    {clip.hashtags && (
-                                        <div>
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className={cn("text-[9px] font-bold uppercase tracking-wider text-[#6366F1]")}>Hashtags</span>
-                                                <CopyButton text={clip.hashtags} />
-                                            </div>
-                                            <p className={cn("text-[10px] font-semibold text-[#6366F1]")}>{clip.hashtags}</p>
-                                        </div>
-                                    )}
-                                 </div>
-                              ))}
-                           </div>
-                       ) : (
-                           <div className={cn("text-xs text-center p-4", textMuted)}>
-                               No hooks or captions generated yet. Upload and analyze a video first!
-                           </div>
-                       )}
-                       
-                       <div className="w-full h-px bg-gray-200 dark:bg-gray-800 my-4" />
-
                        <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-4", textHighlight)}>Video Effects</h3>
                        <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-[400px] pr-1 scrollbar-thin">
                           {[
@@ -657,16 +698,49 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                       onClick={() => {
                                           setProjectClips(prev => prev.map(c => {
                                               if (c.type === 'video') {
+                                                  const currentFilter = c.style?.filters || 'none';
+                                                  const currentScale = c.transform?.scale ?? 1;
+                                                  const currentScaleX = c.transform?.scaleX ?? 1;
+                                                  const currentScaleY = c.transform?.scaleY ?? 1;
+                                                  
+                                                  let newFilter = currentFilter;
+                                                  let newTransform = { ...(c.transform || { scale: 1, scaleX: 1, scaleY: 1 }) };
+
+                                                  if (effect.id === 'reset') {
+                                                      newFilter = 'none';
+                                                      newTransform = { ...newTransform, scale: 1, scaleX: 1, scaleY: 1 };
+                                                  } else {
+                                                      if (effect.filter !== undefined) {
+                                                          if (currentFilter === effect.filter) {
+                                                              newFilter = 'none';
+                                                          } else {
+                                                              newFilter = effect.filter;
+                                                          }
+                                                      }
+                                                      
+                                                      if (effect.transform) {
+                                                          let isApplied = true;
+                                                          if (effect.transform.scale !== undefined && currentScale !== effect.transform.scale) isApplied = false;
+                                                          if (effect.transform.scaleX !== undefined && currentScaleX !== effect.transform.scaleX) isApplied = false;
+                                                          if (effect.transform.scaleY !== undefined && currentScaleY !== effect.transform.scaleY) isApplied = false;
+                                                          
+                                                          if (isApplied) {
+                                                              if (effect.transform.scale !== undefined) newTransform.scale = 1;
+                                                              if (effect.transform.scaleX !== undefined) newTransform.scaleX = 1;
+                                                              if (effect.transform.scaleY !== undefined) newTransform.scaleY = 1;
+                                                          } else {
+                                                              newTransform = { ...newTransform, ...effect.transform };
+                                                          }
+                                                      }
+                                                  }
+
                                                   return {
                                                       ...c,
                                                       style: {
                                                           ...c.style,
-                                                          filters: effect.filter !== undefined ? effect.filter : (c.style?.filters || 'none'),
+                                                          filters: newFilter,
                                                       },
-                                                      transform: {
-                                                          ...(c.transform || { scale: 1, scaleX: 1, scaleY: 1 }),
-                                                          ...(effect.transform || {})
-                                                      }
+                                                      transform: newTransform
                                                   }
                                               }
                                               return c;
@@ -1574,14 +1648,29 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                 const mainClip = projectClips.find(c => c.type === 'video');
                                 const textClip = projectClips.find(c => c.type === 'text');
                                 
-                                const start_time = mainClip?.mediaStart || 0;
-                                const end_time = mainClip?.mediaEnd || (mainClip ? mainClip.duration : videoDuration);
+                                let start_time = 0;
+                                let end_time = videoDuration || 15;
+                                
+                                if (exportRange === 'selected') {
+                                   const active = projectClips.find(c => c.id === activeClipId);
+                                   if (active) {
+                                      start_time = active.mediaStart ?? active.start;
+                                      end_time = active.mediaEnd ?? (active.start + active.duration);
+                                   } else if (mainClip) {
+                                      start_time = mainClip.mediaStart || 0;
+                                      end_time = mainClip.mediaEnd || mainClip.duration;
+                                   }
+                                }
                                 
                                 const formData = new FormData();
                                 formData.append("video", file);
                                 formData.append("start_time", start_time.toString());
                                 formData.append("end_time", end_time.toString());
                                 formData.append("aspect_ratio", aspectRatio);
+                                formData.append("export_format", exportFormat);
+                                formData.append("export_res", exportRes);
+                                formData.append("export_fps", exportFps);
+                                formData.append("export_codec", exportCodec);
                                 
                                 if (textClip) {
                                    // Send captions style and chunks
@@ -1616,11 +1705,20 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                       throw new Error(errText);
                                    }
                                    
+                                   const disposition = res.headers.get('Content-Disposition');
+                                   let filename = `Skillizee_Export_${Date.now()}.${exportFormat === 'png_seq' ? 'mp4' : exportFormat}`;
+                                   if (disposition && disposition.indexOf('filename=') !== -1) {
+                                       const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                                       if (matches != null && matches[1]) {
+                                           filename = matches[1].replace(/['"]/g, '');
+                                       }
+                                   }
+
                                    const blob = await res.blob();
                                    const url = URL.createObjectURL(blob);
                                    const a = document.createElement('a');
                                    a.href = url;
-                                   a.download = `Skillizee_Export_${Date.now()}.mp4`;
+                                   a.download = filename;
                                    a.click();
                                    
                                    setExportProgress(100);
