@@ -108,10 +108,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-pro",
-      generationConfig: { responseMimeType: "application/json" }
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
     const duration = parseFloat(endTime) - parseFloat(startTime);
     const prompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this audio.
@@ -148,7 +145,13 @@ Return ONLY valid JSON without markdown formatting.`;
 
 
       const cleaned = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      parsedCaptions = JSON.parse(cleaned);
+      const start = cleaned.indexOf('[');
+      const end = cleaned.lastIndexOf(']');
+      if (start !== -1 && end !== -1) {
+          parsedCaptions = JSON.parse(cleaned.substring(start, end + 1));
+      } else {
+          parsedCaptions = JSON.parse(cleaned);
+      }
     } catch (e) {
       console.error("Failed to parse Gemini transcription output:", e);
       return NextResponse.json({ error: "Failed to parse AI output." }, { status: 500 });

@@ -769,34 +769,65 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 justifyContent: 'center',
                                 padding: '10px',
                                 opacity: isVisible ? 1 : (isSelected ? 0.5 : 0),
-                                lineHeight: '1.2'
+                                lineHeight: '1.2',
+                                paintOrder: 'stroke fill',
+                                WebkitFontSmoothing: 'antialiased'
                             };
 
                             let activeColor = '#FFD700'; // Default Yellow
                             let inactiveColor = 'white';
                             let activeScale = 1.1;
 
-                            if (preset === 'hormozi') {
+                            if (preset === 'hormozi' || preset === 'opus') {
+                                baseStyle.fontFamily = 'Montserrat, sans-serif';
                                 baseStyle.fontSize = `${baseFontSize}px`;
                                 baseStyle.fontWeight = 900;
-                                baseStyle.textShadow = '0px 4px 12px rgba(0,0,0,0.8), 0px 2px 4px rgba(0,0,0,1)';
+                                baseStyle.WebkitTextStroke = '0.06em black';
+                                baseStyle.textShadow = '0em 0.08em 0.2em rgba(0,0,0,0.8), 0em 0.04em 0.08em rgba(0,0,0,1)';
                                 baseStyle.textTransform = 'uppercase';
-                                activeColor = '#FFD700'; // Yellow
+                                activeColor = '#FFFF00'; // Yellow
+                                inactiveColor = 'white';
+                                activeScale = 1.15;
+                            } else if (preset === 'modern-clean') {
+                                baseStyle.fontFamily = 'Inter, sans-serif';
+                                baseStyle.fontSize = `${Math.round(baseFontSize * 0.8)}px`;
+                                baseStyle.fontWeight = 600;
+                                baseStyle.backgroundColor = 'white';
+                                baseStyle.borderRadius = '0.1em';
+                                baseStyle.padding = '0.2em 0.4em';
+                                baseStyle.borderLeft = '0.1em solid #6366F1';
+                                activeColor = '#3B82F6'; // Blue
+                                inactiveColor = 'black';
+                                activeScale = 1;
+                            } else if (preset === 'paper-cut') {
+                                baseStyle.fontFamily = '"Segoe Print", sans-serif';
+                                baseStyle.fontSize = `${baseFontSize}px`;
+                                baseStyle.fontWeight = 700;
+                                baseStyle.backgroundColor = '#DDF0F6'; // Beige
+                                baseStyle.padding = '0.16em 0.33em';
+                                baseStyle.border = '0.06em solid black';
+                                baseStyle.boxShadow = '0.08em 0.08em 0em rgba(0,0,0,1)';
+                                inactiveColor = '#111111';
+                                activeColor = '#FF0000';
+                                activeScale = 1.15;
                             } else if (preset === 'beast') {
                                 baseStyle.fontFamily = 'Impact, sans-serif';
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 1.2)}px`;
                                 baseStyle.fontWeight = 900;
-                                baseStyle.WebkitTextStroke = '2px black';
-                                baseStyle.textShadow = '4px 4px 0px black';
+                                baseStyle.WebkitTextStroke = '0.104em black';
+                                baseStyle.textShadow = '0.07em 0.07em 0em black';
                                 baseStyle.textTransform = 'uppercase';
                                 baseStyle.fontStyle = 'italic';
+                                inactiveColor = 'white';
                                 activeColor = '#00FFFF'; // Cyan
+                                activeScale = 1.15;
                             } else if (preset === 'youtube') {
+                                baseStyle.fontFamily = 'Arial, sans-serif';
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 0.6)}px`;
                                 baseStyle.fontWeight = 600;
-                                baseStyle.backgroundColor = 'rgba(0,0,0,0.75)';
-                                baseStyle.borderRadius = '4px';
-                                baseStyle.padding = '4px 12px';
+                                baseStyle.backgroundColor = 'rgba(0,0,0,0.5)';
+                                baseStyle.borderRadius = '0.14em';
+                                baseStyle.padding = '0.14em 0.41em';
                                 activeColor = 'white';
                                 inactiveColor = 'white';
                                 activeScale = 1;
@@ -804,64 +835,50 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 baseStyle.fontFamily = 'Montserrat, sans-serif';
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 1.0)}px`;
                                 baseStyle.fontWeight = 800;
-                                baseStyle.WebkitTextStroke = '1.5px black';
-                                baseStyle.textShadow = '1px 1px 2px black';
+                                baseStyle.WebkitTextStroke = '0.052em black';
+                                baseStyle.textShadow = '0.02em 0.02em 0.04em black';
                                 inactiveColor = 'white';
-                                activeColor = '#FFFF00'; // Fallback
+                                activeColor = '#FFFF00'; // Fallback Yellow
                                 activeScale = 1.15;
                             } else if (preset === 'netflix') {
+                                baseStyle.fontFamily = 'Arial, sans-serif';
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 0.8)}px`;
                                 baseStyle.fontWeight = 600;
-                                baseStyle.textShadow = '0px 2px 4px rgba(0,0,0,0.8)';
-                                inactiveColor = '#FFD700'; // Yellow text
-                                activeColor = '#FFD700';
+                                baseStyle.textShadow = '0em 0.052em 0.104em rgba(0,0,0,0.8)';
+                                inactiveColor = '#FFFF00'; // Yellow
+                                activeColor = '#FFFF00';
                                 activeScale = 1;
                             } else if (preset === 'ali') {
+                                baseStyle.fontFamily = 'Inter, sans-serif';
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 0.9)}px`;
                                 baseStyle.fontWeight = 700;
-                                baseStyle.textShadow = '0px 2px 8px rgba(0,0,0,0.5)';
-                                activeColor = '#FF7A00'; // Orange
+                                baseStyle.textShadow = '0em 0.115em 0.23em rgba(0,0,0,0.5)';
+                                inactiveColor = 'white';
+                                activeColor = '#FFA500'; // Orange
+                                activeScale = 1.15;
                             } else if (preset === 'neon') {
+                                baseStyle.fontFamily = 'Inter, sans-serif';
                                 baseStyle.fontSize = `${baseFontSize}px`;
                                 baseStyle.fontWeight = 800;
                                 baseStyle.fontStyle = 'italic';
-                                baseStyle.textShadow = '0 0 10px #ff00ff, 0 0 20px #ff00ff';
-                                inactiveColor = '#ffffff';
-                                activeColor = '#00ffff'; // Cyan active
+                                baseStyle.textShadow = '0 0 0.1em #FF00FF, 0 0 0.2em #FF00FF'; // Magenta
+                                inactiveColor = 'white';
+                                activeColor = '#00FFFF'; // Cyan
+                                activeScale = 1;
                             } else if (preset === 'minimalist') {
-                                baseStyle.fontSize = `${baseFontSize}px`;
-                                baseStyle.fontWeight = 300;
-                                inactiveColor = '#9CA3AF'; // Gray
-                                activeColor = '#111827'; // Black
-                                if (theme === 'dark') activeColor = '#ffffff';
-                            } else if (preset === 'modern-clean') {
                                 baseStyle.fontFamily = 'Inter, sans-serif';
                                 baseStyle.fontSize = `${baseFontSize}px`;
-                                baseStyle.fontWeight = 600;
-                                baseStyle.padding = '8px 24px';
-                                baseStyle.backgroundColor = 'rgba(0, 0, 0, 0.4)';
-                                baseStyle.backdropFilter = 'blur(10px)';
-                                baseStyle.borderLeft = '4px solid #6366F1';
-                                baseStyle.borderRadius = '4px';
-                                activeColor = '#ffffff';
-                                activeScale = 1.05;
-                            } else if (preset === 'paper-cut') {
-                                baseStyle.fontFamily = '"Segoe Print", sans-serif';
-                                baseStyle.fontSize = `${baseFontSize}px`;
-                                baseStyle.fontWeight = 700;
-                                baseStyle.backgroundColor = '#DDF0F6'; // Beige
-                                baseStyle.color = '#111111';
-                                baseStyle.padding = '4px 12px';
-                                baseStyle.border = '3px solid black';
-                                baseStyle.boxShadow = '4px 4px 0px rgba(0,0,0,1)';
-                                inactiveColor = '#111111';
-                                activeColor = '#FF0000';
+                                baseStyle.fontWeight = 300;
+                                inactiveColor = '#D3D3D3'; // LightGray
+                                activeColor = '#000000'; // Black
+                                if (theme === 'dark') activeColor = '#ffffff';
+                                activeScale = 1;
                             } else if (preset === 'cinematic') {
                                 baseStyle.fontFamily = 'Georgia, serif';
                                 baseStyle.fontSize = `${Math.round(baseFontSize * 0.95)}px`;
                                 baseStyle.fontWeight = 400;
-                                baseStyle.WebkitTextStroke = '1px black';
-                                baseStyle.textShadow = '0px 3px 6px rgba(0,0,0,0.8)';
+                                baseStyle.WebkitTextStroke = '0.022em black';
+                                baseStyle.textShadow = '0em 0.065em 0.13em rgba(0,0,0,0.8)';
                                 inactiveColor = '#CCCCCC';
                                 activeColor = '#D4AF37'; // Gold
                                 activeScale = 1;
@@ -869,7 +886,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 baseStyle.fontFamily = 'Inter, sans-serif';
                                 baseStyle.fontSize = `${baseFontSize}px`;
                                 baseStyle.fontWeight = 800;
-                                baseStyle.WebkitTextStroke = '1.5px black';
+                                baseStyle.WebkitTextStroke = '0.031em black';
                                 inactiveColor = 'white';
                                 activeColor = '#2563EB'; // Skillizee Blue
                                 activeScale = 1;
@@ -881,7 +898,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 baseStyle.backgroundColor = 'black';
                                 baseStyle.borderRadius = '4px';
                             } else if (clip.style?.backgroundBox === 'blur') {
-                                baseStyle.backgroundColor = 'rgba(128, 128, 128, 0.3)';
+                                baseStyle.backgroundColor = 'rgba(128, 128, 128, 0.5)';
                                 baseStyle.backdropFilter = 'blur(12px)';
                                 baseStyle.borderRadius = '8px';
                             } else if (clip.style?.backgroundBox === 'dark-blur') {
@@ -889,7 +906,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                 baseStyle.backdropFilter = 'blur(12px)';
                                 baseStyle.borderRadius = '8px';
                             } else if (clip.style?.backgroundBox === 'white-blur') {
-                                baseStyle.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+                                baseStyle.backgroundColor = 'rgba(255, 255, 255, 0.44)';
                                 baseStyle.backdropFilter = 'blur(12px)';
                                 baseStyle.borderRadius = '8px';
                             }
@@ -918,7 +935,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, onBack }: any) 
                                                         currentActiveColor = colors[idx % colors.length];
                                                         currentStroke = '2.5px black';
                                                     } else if (preset === 'skillizee') {
-                                                        currentTextDecoration = 'underline solid #FFC000 4px';
+                                                        currentTextDecoration = 'underline solid #FFFF00 4px';
                                                     }
                                                 }
 

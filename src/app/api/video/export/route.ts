@@ -197,13 +197,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             
             if (preset === 'skillizee') {
                 // Layer 0: Yellow Text with Underline (will be covered by Layer 1, leaving only underline visible)
-                let sentenceL0 = "";
+                let sentenceL0 = "{\\4a&HFF&}"; // Make Layer 0's background box completely transparent
                 for (let j = 0; j < words.length; j++) {
                     const cw = words[j];
                     if (j === i) {
-                        sentenceL0 += `{\\c&H00FFFF&\\u1}${cw.word}{\\u0} `;
+                        sentenceL0 += `{\\1a&H00&\\3a&H00&\\c&H00FFFF&\\u1}${cw.word}{\\u0} `;
                     } else {
-                        sentenceL0 += `{\\alpha&HFF&}${cw.word}{\\alpha0} `; // Invisible placeholder for inactive words
+                        sentenceL0 += `{\\1a&HFF&\\3a&HFF&}${cw.word} `; // Invisible placeholder for inactive words
                     }
                 }
                 ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${sentenceL0.trim()}\n`;

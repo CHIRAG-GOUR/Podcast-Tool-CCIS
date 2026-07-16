@@ -101,10 +101,7 @@ export async function POST(req: Request) {
     }
 
     // Analyze video
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-pro",
-      generationConfig: { responseMimeType: "application/json" }
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
     const prompt = `Analyze this video thoroughly. It is a podcast or talking head video.
 ${context ? `The user provided the following context about the video: "${context}"` : ''}
@@ -156,7 +153,13 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
 
 
       const cleaned = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      parsedClips = JSON.parse(cleaned);
+      const start = cleaned.indexOf('[');
+      const end = cleaned.lastIndexOf(']');
+      if (start !== -1 && end !== -1) {
+          parsedClips = JSON.parse(cleaned.substring(start, end + 1));
+      } else {
+          parsedClips = JSON.parse(cleaned);
+      }
     } catch (e) {
       console.error("Failed to parse Gemini output:", e);
       // Fallback
