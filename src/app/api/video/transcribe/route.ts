@@ -108,7 +108,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const duration = parseFloat(endTime) - parseFloat(startTime);
     const prompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this audio.

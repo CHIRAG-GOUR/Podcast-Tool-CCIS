@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const proModel = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-pro",
+      model: "gemini-2.5-flash",
       // @ts-ignore
       tools: [{ googleSearch: {} }]
     });

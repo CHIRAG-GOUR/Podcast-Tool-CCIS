@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const proModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const proModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     const prompt = `You are a viral trend analyst for educational and general podcasts.
 The user wants to discover trending sub-topics related to: "${topic}".

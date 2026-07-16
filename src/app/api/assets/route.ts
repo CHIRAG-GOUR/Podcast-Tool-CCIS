@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const proModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const proModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `You are an expert podcast producer and social media manager.
 Take the following podcast research report for the topic "${topic}" and generate a comprehensive set of publishing assets.

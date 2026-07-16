@@ -101,7 +101,7 @@ export async function POST(req: Request) {
     }
 
     // Analyze video
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `Analyze this video thoroughly. It is a podcast or talking head video.
 ${context ? `The user provided the following context about the video: "${context}"` : ''}
