@@ -1072,7 +1072,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                 textAlign: 'center',
                                 whiteSpace: 'pre-wrap',
                                 maxWidth: '100%',
-                                width: 'max-content',
+                                width: '100%',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
