@@ -114,18 +114,36 @@ def analyze_video(video_path, output_json):
         for sid in speaker_clusters:
             speaker_mars[sid["center"]].append(frame_mars[sid["center"]])
 
-    # 4. Smooth MARs using a sliding window (1.5 seconds)
-    window_size = 3 # +/- 3 samples @ 5fps = ~1.2s smoothing
+    # 3.5 Calculate baseline and normalize MAR for each speaker
+    # This completely ignores people whose resting face has a slightly open mouth (head bobbing)
+    normalized_mars = {c["center"]: [] for c in speaker_clusters}
+    for sid in speaker_clusters:
+        mars = speaker_mars[sid["center"]]
+        
+        # Sort MARs to find resting baseline (20th percentile)
+        sorted_mars = sorted(mars)
+        baseline_mar = sorted_mars[int(len(sorted_mars) * 0.2)] if sorted_mars else 0
+        
+        # Find active speaking MAR (95th percentile)
+        active_mar = sorted_mars[int(len(sorted_mars) * 0.95)] if sorted_mars else 1
+        mar_range = max(0.01, active_mar - baseline_mar)
+        
+        for mar in mars:
+            norm = (mar - baseline_mar) / mar_range
+            normalized_mars[sid["center"]].append(max(0.0, min(1.0, norm)))
+
+    # 4. Smooth Normalized MARs using a sliding window (1.5 seconds)
+    window_size = 4 # +/- 4 samples @ 5fps = ~1.6s smoothing
     smoothed_mars = {sid["center"]: [] for sid in speaker_clusters}
     
     for sid in speaker_clusters:
-        mars = speaker_mars[sid["center"]]
+        mars = normalized_mars[sid["center"]]
         for i in range(len(mars)):
             start = max(0, i - window_size)
             end = min(len(mars), i + window_size + 1)
             smoothed_mars[sid["center"]].append(sum(mars[start:end]) / (end - start))
 
-    # 5. Decide active speaker using Hysteresis
+    # 5. Decide active speaker using Strong Hysteresis
     active_speaker = None
     time_since_speaker_changed = 0
     cuts = []
@@ -139,8 +157,8 @@ def analyze_video(video_path, output_json):
                 max_mar = smoothed_mars[sid["center"]][i]
                 best_speaker = sid["center"]
                 
-        # Strict threshold for talking (smoothed)
-        is_talking = max_mar > 0.02
+        # Normalized threshold: > 0.2 means they are 20% into their active speaking range
+        is_talking = max_mar > 0.2
         
         if active_speaker is None:
             active_speaker = best_speaker if is_talking else (speaker_clusters[0]["center"] if speaker_clusters else 0.5)
@@ -150,10 +168,10 @@ def analyze_video(video_path, output_json):
             time_since_speaker_changed += (times[i] - times[i-1]) if i > 0 else 0
             current_speaker_mar = smoothed_mars[active_speaker][i]
             
-            # Require the new speaker to be dominant for at least 0.8s OR require current speaker to be quiet
-            if time_since_speaker_changed > 0.8 or (current_speaker_mar < 0.015 and time_since_speaker_changed > 0.4):
-                # Enforce minimum cut duration of 1.5s (wait for sentence to complete)
-                if t - cuts[-1]["start"] >= 1.5:
+            # Require the new speaker to be dominant for at least 1.2s OR require current speaker to be quiet
+            if time_since_speaker_changed > 1.2 or (current_speaker_mar < 0.15 and max_mar > 0.4 and time_since_speaker_changed > 0.5):
+                # Enforce minimum cut duration of 2.0s (Wait for sentence to complete!)
+                if t - cuts[-1]["start"] >= 2.0:
                     cuts[-1]["end"] = t
                     cuts.append({"start": t, "end": t, "cx_percent": best_speaker})
                     active_speaker = best_speaker

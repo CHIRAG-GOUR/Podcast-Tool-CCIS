@@ -21,9 +21,10 @@ interface EditableCanvasNodeProps {
   children: React.ReactNode;
   isDraggable?: boolean;
   isResizable?: boolean;
+  zIndex?: number;
 }
 
-export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChange, children, isDraggable = true, isResizable = true }: EditableCanvasNodeProps) {
+export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChange, children, isDraggable = true, isResizable = true, zIndex }: EditableCanvasNodeProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
   
   // Dragging logic for the body
@@ -118,7 +119,7 @@ export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChan
       style={{
         left: '50%',
         top: '50%',
-        zIndex: 50,
+        zIndex: zIndex !== undefined ? zIndex : (isSelected ? 60 : 50),
       }}
       animate={{
         x: transform.x,

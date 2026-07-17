@@ -10,7 +10,7 @@ import {
   Smartphone, Monitor, Square, Plus, Music, Combine, Edit2, Copy, PlusCircle, UploadCloud, Video, Film,
   Grid, Crop, RotateCcw, FastForward, Clock, Maximize, MousePointer2, Lock, Eye, EyeOff, Hash, FileVideo, AudioWaveform, SlidersHorizontal, Sun, Contrast, Gauge, Unlock, 
   Search, FolderOpen, Star, Undo, Redo, LayoutGrid, List, MessageSquare, MoreVertical, MousePointer,
-  Moon, Expand, Minimize, Command, X
+  Moon, Expand, Minimize, Command, X, ChevronUp, ChevronDown
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import WaveSurfer from 'wavesurfer.js'
@@ -87,6 +87,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
   const [timelineHeight, setTimelineHeight] = useState(300)
   const [zoom, setZoom] = useState(100)
   const [tracks, setTracks] = useState([
+    { id: 'v4', type: 'overlay', name: 'Overlays', locked: false, hidden: false, muted: false },
     { id: 'v3', type: 'cut', name: 'Camera Cuts', locked: false, hidden: false, muted: false },
     { id: 'v2', type: 'text', name: 'Captions', locked: false, hidden: false, muted: false },
     { id: 'v1', type: 'video', name: 'Video 1', locked: false, hidden: false, muted: false },
@@ -151,6 +152,20 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
   
   const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false)
   const [captionsGenerated, setCaptionsGenerated] = useState(!!(initialCaptions && initialCaptions.length > 0))
+  
+  const [uploadedMedia, setUploadedMedia] = useState<{id: string, name: string, url: string, type: 'audio'|'image'|'video'}[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files?.length) return;
+      const newMedia = Array.from(e.target.files).map(file => ({
+          id: 'media_' + Date.now() + Math.random(),
+          name: file.name,
+          url: URL.createObjectURL(file),
+          type: file.type.startsWith('image') ? 'image' : file.type.startsWith('audio') ? 'audio' : 'video' as any
+      }));
+      setUploadedMedia(p => [...p, ...newMedia]);
+  };
   
   const activeClip = projectClips.find(c => c.id === activeClipId)
   
@@ -401,13 +416,14 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                  {leftTab === 'media' && (
                    <div className="space-y-4">
                       <div className="flex gap-2 mb-4">
-                         <button className={cn("flex-1 border border-dashed py-4 rounded flex flex-col items-center justify-center gap-1 transition-colors", borderCol, bgPanel, textMuted, theme === 'dark' ? "hover:border-[#666]" : "hover:border-gray-400")}>
+                         <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleMediaUpload} accept="image/*,video/*,audio/*" />
+                         <button onClick={() => fileInputRef.current?.click()} className={cn("flex-1 border border-dashed py-4 rounded flex flex-col items-center justify-center gap-1 transition-colors", borderCol, bgPanel, textMuted, theme === 'dark' ? "hover:border-[#666]" : "hover:border-gray-400")}>
                             <UploadCloud className="w-5 h-5 mb-1" />
                             <span className="text-[10px] font-semibold">Upload File</span>
                          </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                          {fileUrl ? (
+                      <div className="flex flex-col gap-2">
+                          {fileUrl && (
                              <div className={cn("aspect-video rounded bg-black flex items-center justify-center relative group overflow-hidden border cursor-pointer", borderCol)}>
                                 {thumbnails.length > 0 ? (
                                    <img src={thumbnails[0]} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
@@ -415,19 +431,35 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                    <video src={fileUrl} className="w-full h-full object-cover opacity-50" />
                                 )}
                                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 flex justify-between">
-                                  <span className="text-[8px] text-white truncate max-w-[80px]">{file?.name || 'Uploaded Video'}</span>
+                                  <span className="text-[8px] text-white truncate max-w-[80px]">{file?.name || 'Main Video'}</span>
                                   <span className="text-[8px] text-white">HD</span>
                                </div>
                             </div>
-                         ) : (
-                            <div className={cn("aspect-video rounded bg-black flex items-center justify-center relative group overflow-hidden border", borderCol)}>
-                               <Video className="w-6 h-6 text-white/50" />
-                               <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 flex justify-between">
-                                  <span className="text-[8px] text-white">00:15</span>
-                                  <span className="text-[8px] text-white">1080p</span>
+                         )}
+                         {uploadedMedia.map(m => (
+                            <div key={m.id} onClick={() => {
+                               setProjectClips(p => {
+                                  const tId = m.type === 'audio' ? 'a1' : 'v4';
+                                  const start = currentTime;
+                                  return [...p, { id: m.id + '_' + Date.now(), trackId: tId, type: m.type, start, duration: 5, title: m.name, mediaUrl: m.url, transform: { x: 50, y: 50, scale: 100, rotation: 0, zIndex: 50, opacity: 100 } }];
+                               })
+                            }} className={cn("h-16 rounded bg-black flex items-center relative group overflow-hidden border cursor-pointer transition-colors hover:border-blue-500", borderCol)}>
+                               {m.type === 'image' ? (
+                                  <img src={m.url} className="h-full w-24 object-cover" />
+                               ) : m.type === 'video' ? (
+                                  <video src={m.url} className="h-full w-24 object-cover" />
+                               ) : (
+                                  <div className="h-full w-24 flex items-center justify-center bg-green-500/20 text-green-400"><AudioWaveform className="w-6 h-6" /></div>
+                               )}
+                               <div className="flex-1 px-3 py-2 flex flex-col justify-center">
+                                  <span className="text-xs font-semibold text-white truncate">{m.name}</span>
+                                  <span className="text-[10px] text-gray-400 uppercase tracking-widest">{m.type}</span>
+                               </div>
+                               <div className="absolute inset-y-0 right-0 w-10 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/50 backdrop-blur transition-opacity">
+                                  <Plus className="w-4 h-4 text-white" />
                                </div>
                             </div>
-                         )}
+                         ))}
                       </div>
                    </div>
                  )}
@@ -1192,6 +1224,32 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                    );
                 })}
                 
+                {projectClips.filter(c => (c.type === 'image' || c.type === 'video') && c.id !== 'c1' && currentTime >= c.start && currentTime <= (c.start + c.duration)).map(clip => {
+                   const isSelected = activeClipId === clip.id;
+                   const opacity = clip.transform?.opacity !== undefined ? clip.transform.opacity / 100 : 1;
+                   return (
+                     <EditableCanvasNode
+                       key={clip.id}
+                       id={clip.id}
+                       transform={clip.transform}
+                       isSelected={isSelected}
+                       onSelect={() => setActiveClipId(clip.id)}
+                       onChange={(newTransform) => {
+                          setProjectClips(prev => prev.map(c => c.id === clip.id ? { ...c, transform: newTransform } : c));
+                       }}
+                       isDraggable={true}
+                       isResizable={true}
+                       zIndex={clip.transform?.zIndex || 50}
+                     >
+                        {clip.type === 'image' ? (
+                           <img src={clip.mediaUrl} style={{ width: '100%', height: '100%', objectFit: 'contain', opacity }} draggable={false} />
+                        ) : (
+                           <video src={clip.mediaUrl} style={{ width: '100%', height: '100%', objectFit: 'contain', opacity }} />
+                        )}
+                     </EditableCanvasNode>
+                   );
+                })}
+                
                 {/* Safe Margins */}
                 {showSafeMargins && (
                   <div className="absolute inset-4 border border-red-500/50 pointer-events-none z-10 flex flex-col justify-between p-2 shadow-[0_0_0_1000px_rgba(0,0,0,0.2)]">
@@ -1385,47 +1443,93 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                      </>
                   )}
 
+                  {activeClip.type !== 'cut' && (
+                     <div className="space-y-4">
+                        <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2", textMuted)}><Clock className="w-3 h-3"/> Timing</h4>
+                        <div className="flex gap-2">
+                           <div className="flex-1">
+                              <label className={cn("text-[10px] block mb-1", textMuted)}>Start (s)</label>
+                              <input type="number" step="0.1" value={activeClip.start} onChange={e => {
+                                 setProjectClips(prev => prev.map(c => c.id === activeClip.id ? { ...c, start: Number(e.target.value) } : c));
+                              }} className={cn("w-full p-1.5 text-xs rounded border text-center bg-transparent", borderCol, textHighlight)} />
+                           </div>
+                           <div className="flex-1">
+                              <label className={cn("text-[10px] block mb-1", textMuted)}>Duration (s)</label>
+                              <input type="number" step="0.1" value={activeClip.duration} onChange={e => {
+                                 setProjectClips(prev => prev.map(c => c.id === activeClip.id ? { ...c, duration: Number(e.target.value) } : c));
+                              }} className={cn("w-full p-1.5 text-xs rounded border text-center bg-transparent", borderCol, textHighlight)} />
+                           </div>
+                        </div>
+                     </div>
+                  )}
+
+                  <div className={cn("w-full h-px", borderCol, "border-b")} />
+
                   <div className="space-y-4">
                      <h4 className={cn("text-xs font-bold uppercase tracking-wider", textMuted)}>Transform</h4>
-                     <div className="space-y-2">
-                        <div className={cn("flex justify-between text-[10px]", textMuted)}><span>Scale</span> <span>{Math.round(activeClip?.transform?.scale || 100)}%</span></div>
-                        <input type="range" min="10" max="300" value={activeClip?.transform?.scale || 100} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, scale: Number(e.target.value) })} className="w-full accent-[#6366F1]" disabled={!activeClip?.transform} />
-                     </div>
-                     <div className="space-y-2">
-                        <div className={cn("flex justify-between text-[10px]", textMuted)}><span>X Position</span> <span>{Math.round(activeClip?.transform?.x || 0)}</span></div>
-                        <input type="range" min="-500" max="500" value={activeClip?.transform?.x || 0} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, x: Number(e.target.value) })} className="w-full accent-[#6366F1]" disabled={!activeClip?.transform} />
-                     </div>
-                     <div className="space-y-2">
-                        <div className={cn("flex justify-between text-[10px]", textMuted)}><span>Y Position</span> <span>{Math.round(activeClip?.transform?.y || 0)}</span></div>
-                        <input type="range" min="-500" max="500" value={activeClip?.transform?.y || 0} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, y: Number(e.target.value) })} className="w-full accent-[#6366F1]" disabled={!activeClip?.transform} />
-                     </div>
-                     <div className="space-y-2">
-                        <div className={cn("flex justify-between text-[10px]", textMuted)}><span>Rotation</span> <span>{Math.round(activeClip?.transform?.rotation || 0)}°</span></div>
-                        <input type="range" min="-180" max="180" value={activeClip?.transform?.rotation || 0} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, rotation: Number(e.target.value) })} className="w-full accent-[#6366F1]" disabled={!activeClip?.transform} />
+                     <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                           <span className={cn("text-[10px] w-16", textMuted)}>Scale</span>
+                           <input type="range" min="10" max="300" value={activeClip?.transform?.scale || 100} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, scale: Number(e.target.value) })} className="flex-1 accent-[#6366F1]" disabled={!activeClip?.transform} />
+                           <input type="number" value={Math.round(activeClip?.transform?.scale || 100)} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, scale: Number(e.target.value) })} className={cn("w-12 p-1 text-[10px] rounded border text-center bg-transparent", borderCol, textHighlight)} disabled={!activeClip?.transform} />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                           <span className={cn("text-[10px] w-16", textMuted)}>X Pos</span>
+                           <input type="range" min="-500" max="500" value={activeClip?.transform?.x || 0} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, x: Number(e.target.value) })} className="flex-1 accent-[#6366F1]" disabled={!activeClip?.transform} />
+                           <input type="number" value={Math.round(activeClip?.transform?.x || 0)} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, x: Number(e.target.value) })} className={cn("w-12 p-1 text-[10px] rounded border text-center bg-transparent", borderCol, textHighlight)} disabled={!activeClip?.transform} />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                           <span className={cn("text-[10px] w-16", textMuted)}>Y Pos</span>
+                           <input type="range" min="-500" max="500" value={activeClip?.transform?.y || 0} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, y: Number(e.target.value) })} className="flex-1 accent-[#6366F1]" disabled={!activeClip?.transform} />
+                           <input type="number" value={Math.round(activeClip?.transform?.y || 0)} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, y: Number(e.target.value) })} className={cn("w-12 p-1 text-[10px] rounded border text-center bg-transparent", borderCol, textHighlight)} disabled={!activeClip?.transform} />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                           <span className={cn("text-[10px] w-16", textMuted)}>Rotate</span>
+                           <input type="range" min="-180" max="180" value={activeClip?.transform?.rotation || 0} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, rotation: Number(e.target.value) })} className="flex-1 accent-[#6366F1]" disabled={!activeClip?.transform} />
+                           <input type="number" value={Math.round(activeClip?.transform?.rotation || 0)} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, rotation: Number(e.target.value) })} className={cn("w-12 p-1 text-[10px] rounded border text-center bg-transparent", borderCol, textHighlight)} disabled={!activeClip?.transform} />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                           <span className={cn("text-[10px] w-16", textMuted)}>Opacity</span>
+                           <input type="range" min="0" max="100" value={activeClip?.transform?.opacity !== undefined ? activeClip.transform.opacity : 100} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, opacity: Number(e.target.value) })} className="flex-1 accent-[#6366F1]" disabled={!activeClip?.transform} />
+                           <input type="number" value={Math.round(activeClip?.transform?.opacity !== undefined ? activeClip.transform.opacity : 100)} onChange={e=>updateActiveClipTransform({ ...activeClip.transform, opacity: Number(e.target.value) })} className={cn("w-12 p-1 text-[10px] rounded border text-center bg-transparent", borderCol, textHighlight)} disabled={!activeClip?.transform} />
+                        </div>
                      </div>
                   </div>
-                  {(!activeClip || activeClip.type !== 'text') && (
+                  
+                  {activeClip?.type !== 'cut' && activeClip?.type !== 'audio' && (
                      <>
-                        <div className={cn("w-full h-px", borderCol, "border-b")} />
-                        
-                        {activeClip?.type === 'cut' ? (
-                           <div className="space-y-3">
-                              <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-orange-500")}><Crop className="w-3 h-3"/> AI Auto-Framing</h4>
-                              <p className={cn("text-[10px]", textMuted, "leading-tight mb-2")}>Manually override the AI's camera position for this specific cut.</p>
-                              <div className="space-y-2">
-                                 <div className={cn("flex justify-between text-[10px]", textMuted)}><span>Horizontal Pan (Center X)</span> <span>{Math.round((activeClip.cx_percent || 0.5) * 100)}%</span></div>
-                                 <input type="range" min="0" max="100" value={(activeClip.cx_percent || 0.5) * 100} onChange={e=> {
-                                     const newClips = projectClips.map(c => c.id === activeClip.id ? { ...c, cx_percent: Number(e.target.value) / 100 } : c);
-                                     setProjectClips(newClips);
-                                 }} className="w-full accent-orange-500" />
-                              </div>
+                        <div className={cn("w-full h-px border-b my-4", borderCol)} />
+                        <div className="space-y-3">
+                           <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2", textMuted)}><Layers className="w-3 h-3"/> Layering</h4>
+                           <div className="flex gap-2">
+                              <button onClick={() => updateActiveClipTransform({ ...activeClip.transform, zIndex: (activeClip.transform?.zIndex || 50) + 1 })} className={cn("flex-1 py-1.5 border rounded text-xs transition-colors flex items-center justify-center gap-1", borderCol, textHighlight, bgHover)}>
+                                 <ChevronUp className="w-3 h-3"/> Forward
+                              </button>
+                              <button onClick={() => updateActiveClipTransform({ ...activeClip.transform, zIndex: (activeClip.transform?.zIndex || 50) - 1 })} className={cn("flex-1 py-1.5 border rounded text-xs transition-colors flex items-center justify-center gap-1", borderCol, textHighlight, bgHover)}>
+                                 <ChevronDown className="w-3 h-3"/> Backward
+                              </button>
                            </div>
-                        ) : (
-                           <div className="space-y-3">
-                              <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2", textMuted)}><Crop className="w-3 h-3"/> Crop & Mask</h4>
-                              <button className={cn("w-full py-1.5 border rounded text-xs transition-colors", borderCol, textHighlight, bgHover)}>Edit Crop Mask</button>
+                           <button onClick={() => updateActiveClipTransform({ ...activeClip.transform, zIndex: 9999 })} className={cn("w-full py-1.5 border rounded text-xs transition-colors bg-blue-500/10 text-blue-500 border-blue-500/50 hover:bg-blue-500/20")}>
+                              Always on Top
+                           </button>
+                        </div>
+                     </>
+                  )}
+                  
+                  {activeClip?.type === 'cut' && (
+                     <>
+                        <div className={cn("w-full h-px my-4", borderCol, "border-b")} />
+                        <div className="space-y-3">
+                           <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-orange-500")}><Crop className="w-3 h-3"/> AI Auto-Framing</h4>
+                           <p className={cn("text-[10px]", textMuted, "leading-tight mb-2")}>Manually override the AI's camera position for this specific cut.</p>
+                           <div className="space-y-2">
+                              <div className={cn("flex justify-between text-[10px]", textMuted)}><span>Horizontal Pan (Center X)</span> <span>{Math.round((activeClip.cx_percent || 0.5) * 100)}%</span></div>
+                              <input type="range" min="0" max="100" value={(activeClip.cx_percent || 0.5) * 100} onChange={e=> {
+                                  const newClips = projectClips.map(c => c.id === activeClip.id ? { ...c, cx_percent: Number(e.target.value) / 100 } : c);
+                                  setProjectClips(newClips);
+                              }} className="w-full accent-orange-500" />
                            </div>
-                        )}
+                        </div>
                      </>
                   )}
                </div>
@@ -1483,7 +1587,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
             {/* Track Headers */}
             <div className={cn("w-[120px] border-r flex flex-col shrink-0 z-10", borderCol, bgSidebar)}>
                <div className={cn("h-6 border-b", borderCol)} /> {/* Ruler space */}
-               {tracks.map(t => (
+               {tracks.map((t, index) => (
                   <div key={t.id} className={cn("h-16 border-b p-2 flex flex-col justify-center relative group", borderCol)}>
                      <div className="flex items-center justify-between">
                         <span className={cn("text-[10px] font-semibold flex items-center gap-1", textMuted)}>
@@ -1491,11 +1595,27 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                            {t.type === 'audio' && <AudioWaveform className="w-3 h-3 text-green-400"/>}
                            {t.type === 'text' && <Type className="w-3 h-3 text-purple-400"/>}
                            {t.type === 'cut' && <Video className="w-3 h-3 text-orange-400"/>}
+                           {t.type === 'overlay' && <ImageIcon className="w-3 h-3 text-pink-400"/>}
                            {t.id.toUpperCase()}
                         </span>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <button onClick={() => setTracks(ts => ts.map(tr => tr.id === t.id ? {...tr, locked: !tr.locked} : tr))} className={cn(t.locked ? 'text-red-400' : textMuted, `hover:${textHighlight}`)}>{t.locked ? <Lock className="w-3 h-3"/> : <Unlock className="w-3 h-3"/>}</button>
-                           <button onClick={() => setTracks(ts => ts.map(tr => tr.id === t.id ? {...tr, hidden: !tr.hidden} : tr))} className={cn(t.hidden ? 'text-red-400' : textMuted, `hover:${textHighlight}`)}>{t.hidden ? <EyeOff className="w-3 h-3"/> : <Eye className="w-3 h-3"/>}</button>
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <button onClick={() => {
+                               if (index > 0) {
+                                   const newTracks = [...tracks];
+                                   [newTracks[index-1], newTracks[index]] = [newTracks[index], newTracks[index-1]];
+                                   setTracks(newTracks);
+                               }
+                           }} className={cn("p-0.5 rounded", textMuted, `hover:${textHighlight}`)} title="Move Up"><ChevronUp className="w-3 h-3"/></button>
+                           <button onClick={() => {
+                               if (index < tracks.length - 1) {
+                                   const newTracks = [...tracks];
+                                   [newTracks[index+1], newTracks[index]] = [newTracks[index], newTracks[index+1]];
+                                   setTracks(newTracks);
+                               }
+                           }} className={cn("p-0.5 rounded", textMuted, `hover:${textHighlight}`)} title="Move Down"><ChevronDown className="w-3 h-3"/></button>
+                           
+                           <button onClick={() => setTracks(ts => ts.map(tr => tr.id === t.id ? {...tr, locked: !tr.locked} : tr))} className={cn("ml-1", t.locked ? 'text-red-400' : textMuted, `hover:${textHighlight}`)} title={t.locked ? 'Unlock' : 'Lock'}>{t.locked ? <Lock className="w-3 h-3"/> : <Unlock className="w-3 h-3"/>}</button>
+                           <button onClick={() => setTracks(ts => ts.map(tr => tr.id === t.id ? {...tr, hidden: !tr.hidden} : tr))} className={cn(t.hidden ? 'text-red-400' : textMuted, `hover:${textHighlight}`)} title={t.hidden ? 'Show' : 'Hide'}>{t.hidden ? <EyeOff className="w-3 h-3"/> : <Eye className="w-3 h-3"/>}</button>
                         </div>
                      </div>
                   </div>
@@ -1563,58 +1683,91 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                   
                   {tracks.map(t => (
                      <div key={t.id} className={cn("h-16 border-b relative", borderCol)}>
-                        {t.type === 'video' && projectClips.filter(c => c.type === 'video').map(c => (
-                           <div key={c.id} className={cn(
-                              "absolute h-14 top-1 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col",
-                              activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-blue-500/50 hover:border-blue-400"
-                           )}
-                           style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
-                           onClick={() => setActiveClipId(c.id)}
-                           onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); setActiveClipId(c.id); setContextMenu({ x: e.clientX, y: e.clientY, type: 'clip', targetId: c.id }) }}
-                           >
-                              <div className="absolute inset-0 bg-blue-500/20" />
-                              <div className="px-1.5 py-0.5 text-[9px] font-bold text-white bg-black/30 z-10 truncate absolute top-0 w-full backdrop-blur-sm">{c.title}</div>
-                              {/* Real Thumbnails */}
-                              <div className="flex-1 flex overflow-hidden">
-                                 {thumbnails.length > 0 ? (
-                                    thumbnails.map((t, i) => (
-                                       <img key={i} src={t} className="h-full object-cover shrink-0" style={{ width: `${zoom}px` }} draggable={false} />
-                                    ))
-                                 ) : (
-                                    Array.from({length: Math.ceil(c.duration)}).map((_, i) => (
-                                       <div key={i} className="h-full border-r border-blue-900/30 bg-blue-800/20 shrink-0" style={{ width: `${zoom}px` }} />
-                                    ))
+                        {projectClips.filter(c => c.trackId === t.id).map(c => {
+                           if (c.type === 'video' || c.type === 'image') {
+                              return (
+                                 <div key={c.id} className={cn(
+                                    "absolute h-14 top-1 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col",
+                                    activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : (c.type === 'image' ? "border-pink-500/50 hover:border-pink-400" : "border-blue-500/50 hover:border-blue-400")
                                  )}
-                              </div>
-                           </div>
-                        ))}
-                        {t.type === 'text' && projectClips.filter(c => c.type === 'text').map(c => (
-                           <div key={c.id} className={cn(
-                              "absolute h-14 top-1 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col justify-center items-center",
-                              activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-purple-500/50 hover:border-purple-400"
-                           )}
-                           style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
-                           onClick={() => setActiveClipId(c.id)}
-                           >
-                              <div className="absolute inset-0 bg-purple-500/20" />
-                              <span className="text-xs font-bold text-purple-100 relative z-10 truncate px-2">{c.title}</span>
-                           </div>
-                        ))}
-                        {t.type === 'cut' && projectClips.filter(c => c.type === 'cut').map(c => (
-                           <div key={c.id} className={cn(
-                              "absolute h-10 top-3 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col justify-center items-center",
-                              activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-orange-500/50 hover:border-orange-400"
-                           )}
-                           style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
-                           onClick={() => setActiveClipId(c.id)}
-                           >
-                              <div className="absolute inset-0 bg-orange-500/20" />
-                              <span className="text-[10px] font-bold text-orange-100 relative z-10 truncate px-2">{c.title}</span>
-                           </div>
-                        ))}
-                        
-                        {/* Fake gap indicator if multiple clips exist */}
-                        {t.type === 'video' && projectClips.length > 1 && (
+                                 style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
+                                 onClick={() => setActiveClipId(c.id)}
+                                 onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); setActiveClipId(c.id); setContextMenu({ x: e.clientX, y: e.clientY, type: 'clip', targetId: c.id }) }}
+                                 >
+                                    <div className={cn("absolute inset-0", c.type === 'image' ? "bg-pink-500/20" : "bg-blue-500/20")} />
+                                    <div className="px-1.5 py-0.5 text-[9px] font-bold text-white bg-black/30 z-10 truncate absolute top-0 w-full backdrop-blur-sm">{c.title}</div>
+                                    <div className="flex-1 flex overflow-hidden">
+                                       {c.id === 'c1' && thumbnails.length > 0 ? (
+                                          thumbnails.map((thumb, i) => (
+                                             <img key={i} src={thumb} className="h-full object-cover shrink-0" style={{ width: `${zoom}px` }} draggable={false} />
+                                          ))
+                                       ) : c.type === 'image' ? (
+                                          <img src={c.mediaUrl} className="h-full w-full object-cover shrink-0" draggable={false} />
+                                       ) : (
+                                          Array.from({length: Math.ceil(c.duration)}).map((_, i) => (
+                                             <div key={i} className="h-full border-r border-blue-900/30 bg-blue-800/20 shrink-0" style={{ width: `${zoom}px` }} />
+                                          ))
+                                       )}
+                                    </div>
+                                 </div>
+                              );
+                           }
+                           
+                           if (c.type === 'audio') {
+                              return (
+                                 <div key={c.id} className={cn(
+                                    "absolute h-14 top-1 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col",
+                                    activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-green-500/50 hover:border-green-400 bg-green-500/10"
+                                 )}
+                                 style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
+                                 onClick={() => setActiveClipId(c.id)}
+                                 >
+                                    <div className="absolute top-1 left-2 text-[9px] font-bold text-green-700 dark:text-green-300 z-10 flex items-center gap-1">
+                                       <AudioWaveform className="w-3 h-3" /> {c.title}
+                                    </div>
+                                    <WaveformTrack fileUrl={c.mediaUrl || fileUrl} width={c.duration * zoom} />
+                                 </div>
+                              );
+                           }
+
+                           if (c.type === 'text') {
+                              return (
+                                 <div key={c.id} className={cn(
+                                    "absolute h-14 top-1 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col justify-center items-center",
+                                    activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-purple-500/50 hover:border-purple-400 bg-purple-500/10"
+                                 )}
+                                 style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
+                                 onClick={() => setActiveClipId(c.id)}
+                                 onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); setActiveClipId(c.id); setContextMenu({ x: e.clientX, y: e.clientY, type: 'clip', targetId: c.id }) }}
+                                 >
+                                    <div className="absolute inset-0 bg-purple-500/10" />
+                                    <div className="px-1.5 py-0.5 text-[9px] font-bold text-purple-200 z-10 truncate absolute top-0 w-full bg-black/30 backdrop-blur-sm">{c.title}</div>
+                                    <div className="flex-1 flex items-center justify-center p-1 pt-4 overflow-hidden w-full">
+                                       <span className="text-[10px] text-white truncate font-semibold w-full text-center">{c.text || 'Auto Captions'}</span>
+                                    </div>
+                                 </div>
+                              );
+                           }
+
+                           if (c.type === 'cut') {
+                              return (
+                                 <div key={c.id} className={cn(
+                                    "absolute h-10 top-3 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col justify-center items-center",
+                                    activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-orange-500/50 hover:border-orange-400"
+                                 )}
+                                 style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
+                                 onClick={() => setActiveClipId(c.id)}
+                                 >
+                                    <div className="absolute inset-0 bg-orange-500/20" />
+                                    <span className="text-[10px] font-bold text-orange-100 relative z-10 truncate px-2">{c.title}</span>
+                                 </div>
+                              );
+                           }
+                           
+                           return null;
+                        })}
+
+                        {t.type === 'video' && projectClips.filter(c => c.trackId === t.id).length > 1 && (
                             <div className="absolute h-14 top-1 flex items-center justify-center z-20"
                                  style={{ left: `${(projectClips[0].start + projectClips[0].duration) / (videoDuration || 15) * 100}%`, width: '20px', marginLeft: '-10px' }}>
                                <button className="w-5 h-5 bg-black border border-gray-600 rounded-full flex items-center justify-center text-white hover:bg-gray-800 shadow-xl transition-transform hover:scale-110">
@@ -1622,37 +1775,6 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                </button>
                             </div>
                         )}
-                        
-                        {t.type === 'audio' && projectClips.filter(c => c.type === 'audio').map(c => (
-                           <div key={c.id} className={cn(
-                              "absolute h-14 top-1 rounded-md overflow-hidden border transition-all",
-                              "border-green-500/50 bg-green-500/10"
-                           )}
-                           style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
-                           >
-                              <div className="absolute top-1 left-2 text-[9px] font-bold text-green-700 dark:text-green-300 z-10 flex items-center gap-1">
-                                 <AudioWaveform className="w-3 h-3" /> Audio Track
-                              </div>
-                              <WaveformTrack fileUrl={fileUrl} width={c.duration * zoom} />
-                           </div>
-                        ))}
-                        
-                        {t.type === 'text' && projectClips.filter(c => c.type === 'text').map(c => (
-                           <div key={c.id} className={cn(
-                              "absolute h-14 top-1 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col",
-                              activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-purple-500/50 hover:border-purple-400 bg-purple-500/10"
-                           )}
-                           style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
-                           onClick={() => setActiveClipId(c.id)}
-                           onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); setActiveClipId(c.id); setContextMenu({ x: e.clientX, y: e.clientY, type: 'clip', targetId: c.id }) }}
-                           >
-                              <div className="absolute inset-0 bg-purple-500/10" />
-                              <div className="px-1.5 py-0.5 text-[9px] font-bold text-purple-200 z-10 truncate absolute top-0 w-full bg-black/30 backdrop-blur-sm">{c.title}</div>
-                              <div className="flex-1 flex items-center justify-center p-1 pt-4 overflow-hidden">
-                                 <span className="text-[10px] text-white truncate font-semibold">{c.text}</span>
-                              </div>
-                           </div>
-                        ))}
                      </div>
                   ))}
                </div>
