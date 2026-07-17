@@ -115,10 +115,12 @@ export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChan
   return (
     <motion.div
       ref={nodeRef}
-      className={`absolute flex items-center justify-center cursor-move ${!isResizable ? 'w-[90%] max-w-[90%]' : ''}`}
+      className="absolute cursor-move"
       style={{
         left: '50%',
         top: '50%',
+        width: 0,
+        height: 0,
         zIndex: zIndex !== undefined ? zIndex : (isSelected ? 60 : 50),
       }}
       animate={{
@@ -135,7 +137,9 @@ export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChan
         onSelect();
       }}
     >
-      <div className={`relative -translate-x-1/2 -translate-y-1/2 ${isSelected ? 'ring-1 ring-[#6366F1] shadow-[0_0_15px_rgba(99,102,241,0.3)]' : ''}`}>
+      <div 
+         className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center ${!isResizable ? 'w-[90cqw] max-w-[90cqw]' : ''} ${isSelected ? 'ring-1 ring-[#6366F1] shadow-[0_0_15px_rgba(99,102,241,0.3)]' : ''}`}
+      >
         {children}
         
         {/* Selection UI overlay (handles) */}

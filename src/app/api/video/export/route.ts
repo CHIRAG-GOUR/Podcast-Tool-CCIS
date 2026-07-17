@@ -480,14 +480,60 @@ export async function POST(req: Request) {
         }
     }
 
+    // Download B-roll overlays
+    const overlays = projectClips?.filter((c: any) => c.trackId === 'v4' && c.type === 'image') || [];
+    let brollInputs = '';
+    const downloadedImages = [];
+    if (overlays.length > 0) {
+        for (let i = 0; i < overlays.length; i++) {
+            const overlay = overlays[i];
+            const imgPath = join(tmpdir(), `${uniqueId}-broll-${i}.jpg`);
+            try {
+                const imgResponse = await fetch(overlay.mediaUrl);
+                const imgBuffer = await imgResponse.arrayBuffer();
+                await writeFile(imgPath, Buffer.from(imgBuffer));
+                downloadedImages.push(imgPath);
+                brollInputs += ` -i "${imgPath.replace(/\\/g, '/').replace(/:/g, '\\:')}"`;
+            } catch (err) {
+                console.error("Failed to download B-roll", err);
+            }
+        }
+    }
+    
+    // Adjust audio input index if viralSoundDesign is present
+    if (viralSoundDesign && overlays.length > 0) {
+        const newAudioIdx = 1 + overlays.length;
+        afStr = afStr.replace('[1:a]', `[${newAudioIdx}:a]`);
+    }
+
     // Build FFMPEG command
-    let ffmpegCmd = `"${ffmpegInstaller.path}" -y -ss ${startNum} -t ${duration} -i "${tempVideoPath}"${audioInputs}`;
+    let ffmpegCmd = `"${ffmpegInstaller.path}" -y -ss ${startNum} -t ${duration} -i "${tempVideoPath}"${brollInputs}${audioInputs}`;
     
     if (!isAudioOnly) {
-        if (viralSoundDesign || (afStr && afStr.includes('[a0]'))) {
+        if (viralSoundDesign || (afStr && afStr.includes('[a0]')) || overlays.length > 0) {
             // Complex filtergraph required
-            const complexFilter = `[0:v]${vfStr}[v];${afStr}[a]`;
-            ffmpegCmd += ` -filter_complex "${complexFilter}" -map "[v]" -map "[a]" -r ${exportFps} -c:v ${vCodec} ${extraArgs}`;
+            let complexFilter = `[0:v]${vfStr}[vbase];`;
+            let currentV = 'vbase';
+            
+            // Apply b-roll overlays
+            for (let i = 0; i < downloadedImages.length; i++) {
+                const overlay = overlays[i];
+                const inputIdx = i + 1; // 1-indexed for broll inputs
+                const nextV = `v${i}`;
+                const start = overlay.start - startNum;
+                const end = start + (overlay.duration || 3);
+                const brollFiltered = `b${i}`;
+                
+                complexFilter += `[${inputIdx}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},fade=t=in:st=${start}:d=0.3:alpha=1,fade=t=out:st=${end-0.3}:d=0.3:alpha=1[${brollFiltered}];`;
+                complexFilter += `[${currentV}][${brollFiltered}]overlay=0:0:enable='between(t,${start},${end})'[${nextV}];`;
+                currentV = nextV;
+            }
+            
+            if (afStr) {
+                complexFilter += `${afStr}[a]`;
+            }
+            
+            ffmpegCmd += ` -filter_complex "${complexFilter}" -map "[${currentV}]" ${afStr ? '-map "[a]"' : '-map 0:a'} -r ${exportFps} -c:v ${vCodec} ${extraArgs}`;
             if (aCodec) {
                 ffmpegCmd += ` -c:a ${aCodec} -b:a 128k`;
             }

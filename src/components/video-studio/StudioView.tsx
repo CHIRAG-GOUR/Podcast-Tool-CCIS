@@ -782,11 +782,24 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                          <span className={cn("text-[9px] font-bold uppercase tracking-wider text-pink-500 mb-2 block")}>Suggested B-Roll</span>
                                          <div className="flex flex-col gap-2">
                                              {socialClip.broll.map((br: any, idx: number) => (
-                                                 <div key={idx} className="bg-black/20 p-2 rounded flex gap-2 items-start">
-                                                     <img src={`https://image.pollinations.ai/prompt/${encodeURIComponent(br.keyword)}?width=150&height=150&nologo=true`} className="w-12 h-12 rounded object-cover shrink-0 bg-black/40" alt={br.keyword} />
-                                                     <div className="flex-1">
+                                                 <div 
+                                                     key={idx} 
+                                                     className="bg-black/20 p-2 rounded flex gap-2 items-start cursor-grab active:cursor-grabbing hover:bg-black/40 transition-colors"
+                                                     draggable
+                                                     onDragStart={(e) => {
+                                                         e.dataTransfer.setData('application/json', JSON.stringify({
+                                                             type: 'broll',
+                                                             url: `https://image.pollinations.ai/prompt/${encodeURIComponent(br.keyword)}?width=1080&height=1920&nologo=true`,
+                                                             keyword: br.keyword,
+                                                             start: br.start_time
+                                                         }));
+                                                     }}
+                                                 >
+                                                     <img src={`https://image.pollinations.ai/prompt/${encodeURIComponent(br.keyword)}?width=150&height=150&nologo=true`} className="w-12 h-12 rounded object-cover shrink-0 bg-black/40 pointer-events-none" alt={br.keyword} />
+                                                     <div className="flex-1 pointer-events-none">
                                                          <p className="text-[10px] font-semibold text-white">"{br.keyword}"</p>
                                                          <p className="text-[9px] text-gray-400 mt-1">@ {br.start_time.toFixed(1)}s (for {br.duration}s)</p>
+                                                         <p className="text-[8px] text-[#6366F1] mt-1 opacity-80">Drag onto video →</p>
                                                      </div>
                                                  </div>
                                              ))}
@@ -901,7 +914,38 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                 </button>
              )}
 
-             <div ref={previewContainerRef} style={{ containerType: 'inline-size' }} className={cn("relative bg-black rounded-lg shadow-2xl h-full max-h-full max-w-full overflow-hidden flex-shrink-0 mx-auto", aspectMap[aspectRatio] || 'aspect-video')}>
+             <div 
+                ref={previewContainerRef} 
+                style={{ containerType: 'inline-size' }} 
+                className={cn("relative bg-black rounded-lg shadow-2xl h-full max-h-full max-w-full overflow-hidden flex-shrink-0 mx-auto", aspectMap[aspectRatio] || 'aspect-video')}
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                }}
+                onDrop={(e) => {
+                    e.preventDefault();
+                    const data = e.dataTransfer.getData('application/json');
+                    if (data) {
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.type === 'broll') {
+                                const mainClip = projectClips.find(c => c.type === 'video');
+                                const baseStart = mainClip?.start || 0;
+                                setProjectClips(prev => [...prev, {
+                                    id: 'broll_' + Date.now(),
+                                    trackId: 'v4',
+                                    type: 'image',
+                                    start: currentTime + baseStart,
+                                    duration: 3.0,
+                                    title: `B-Roll: ${parsed.keyword.substring(0, 15)}...`,
+                                    mediaUrl: parsed.url,
+                                    transform: { x: 50, y: 50, width: 1080, height: 1920, scale: 100, rotation: 0, opacity: 100, zIndex: 60 }
+                                }]);
+                            }
+                        } catch(err) {}
+                    }
+                }}
+             >
                 {fileUrl && (() => {
                   const cameraCuts = projectClips.filter(c => c.type === 'cut');
                   const activeCut = cameraCuts.find(c => currentTime >= c.start && currentTime <= c.end);
