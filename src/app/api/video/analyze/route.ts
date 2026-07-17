@@ -179,6 +179,7 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
 
     const captionsPrompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this media.
 CRITICAL INSTRUCTION: Break the transcription into short phrases (3-5 words) suitable for fast-paced Captions.ai style videos.
+DO NOT include any emojis or non-text symbols in the transcription. Return ONLY the spoken words.
 
 Return a JSON array of phrase objects. Each object must have:
 - "text": The full phrase spoken.

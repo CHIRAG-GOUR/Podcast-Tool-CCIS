@@ -115,7 +115,7 @@ export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChan
   return (
     <motion.div
       ref={nodeRef}
-      className="absolute flex items-center justify-center cursor-move"
+      className={`absolute flex items-center justify-center cursor-move ${!isResizable ? 'w-[90%] max-w-[90%]' : ''}`}
       style={{
         left: '50%',
         top: '50%',

@@ -1012,7 +1012,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                 fontFamily: clip.style?.fontFamily || 'Inter',
                                 textAlign: 'center',
                                 whiteSpace: 'pre-wrap',
-                                maxWidth: '90cqi',
+                                maxWidth: '100%',
                                 width: 'max-content',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1938,19 +1938,22 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                 const mainClip = projectClips.find(c => c.type === 'video');
                                 const textClip = projectClips.find(c => c.type === 'text');
                                 
-                                let start_time = 0;
-                                let end_time = videoDuration || 15;
-                                
-                                if (exportRange === 'selected') {
-                                   const active = projectClips.find(c => c.id === activeClipId);
-                                   if (active) {
-                                      start_time = active.mediaStart ?? active.start;
-                                      end_time = active.mediaEnd ?? (active.start + active.duration);
-                                   } else if (mainClip) {
-                                      start_time = mainClip.mediaStart || 0;
-                                      end_time = mainClip.mediaEnd || mainClip.duration;
-                                   }
-                                }
+                                let start_time = mainClip?.mediaStart || 0;
+                                 let end_time = start_time + (videoDuration || 15);
+                                 let timelineOffset = 0;
+                                 
+                                 if (exportRange === 'selected') {
+                                    const active = projectClips.find(c => c.id === activeClipId);
+                                    if (active && active.type === 'video') {
+                                       start_time = active.mediaStart ?? (start_time + active.start);
+                                       end_time = active.mediaEnd ?? (start_time + active.duration);
+                                       timelineOffset = active.start;
+                                    } else if (active) {
+                                       start_time = (mainClip?.mediaStart || 0) + active.start;
+                                       end_time = start_time + active.duration;
+                                       timelineOffset = active.start;
+                                    }
+                                 }
                                 
                                 const formData = new FormData();
                                 formData.append("video", file);
@@ -1966,17 +1969,35 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                 formData.append("viral_bouncy_text", bouncyText ? "true" : "false");
                                 
                                 if (textClip) {
-                                   // Send captions style and chunks
-                                   formData.append("captions", JSON.stringify(textClip));
+                                    let exportTextClip = JSON.parse(JSON.stringify(textClip));
+                                    if (timelineOffset > 0 && exportTextClip.chunks) {
+                                        exportTextClip.chunks = exportTextClip.chunks.map((chunk: any) => ({
+                                            ...chunk,
+                                            start: Math.max(0, chunk.start - timelineOffset),
+                                            end: Math.max(0, chunk.end - timelineOffset),
+                                            words: (chunk.words || []).map((w: any) => ({
+                                                ...w,
+                                                start: Math.max(0, w.start - timelineOffset),
+                                                end: Math.max(0, w.end - timelineOffset)
+                                            })).filter((w: any) => w.end > 0)
+                                        })).filter((c: any) => c.end > 0);
+                                    }
+                                    formData.append("captions", JSON.stringify(exportTextClip));
                                    if (previewContainerRef.current) {
                                        formData.append("canvas_width", previewContainerRef.current.clientWidth.toString());
                                        formData.append("canvas_height", previewContainerRef.current.clientHeight.toString());
                                    }
                                 }
                                 
-                                const cameraCuts = projectClips.filter(c => c.type === 'cut');
-                                if (cameraCuts.length > 0) {
-                                   formData.append("cameraCuts", JSON.stringify(cameraCuts));
+                                let exportCameraCuts = projectClips.filter(c => c.type === 'cut');
+                                 if (exportCameraCuts.length > 0) {
+                                    if (timelineOffset > 0) {
+                                        exportCameraCuts = exportCameraCuts.map((c: any) => ({
+                                            ...c,
+                                            start: Math.max(0, c.start - timelineOffset)
+                                        })).filter((c: any) => (c.start + c.duration) > 0);
+                                    }
+                                    formData.append("cameraCuts", JSON.stringify(exportCameraCuts));
                                 }
 
                                 // Mock progress while waiting

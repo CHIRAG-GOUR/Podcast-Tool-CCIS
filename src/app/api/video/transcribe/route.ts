@@ -113,6 +113,7 @@ export async function POST(req: Request) {
     const duration = parseFloat(endTime) - parseFloat(startTime);
     const prompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this audio.
 CRITICAL INSTRUCTION: Break the transcription into short phrases (3-5 words) suitable for fast-paced Captions.ai style videos.
+DO NOT include any emojis or non-text symbols in the transcription. Return ONLY the spoken words.
 For each phrase, you MUST also provide an array of the exact individual words spoken, with word-level timestamps.
 
 Return a JSON array of phrase objects. Each object must have:

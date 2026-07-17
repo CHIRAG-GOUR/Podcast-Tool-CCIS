@@ -338,13 +338,21 @@ export async function POST(req: Request) {
     await writeFile(tempVideoPath, buffer);
     console.log(`Saved temp video to ${tempVideoPath} for export with ratio ${targetWidth}x${targetHeight}`);
 
+    const startNum = parseFloat(startTime) || 0;
+    const endNum = parseFloat(endTime) || 0;
+    const duration = endNum > 0 ? (endNum - startNum) : 999999;
+
+    // Camera cuts and captions are already shifted relative to timeline offset by the frontend
+    const shiftedCameraCuts = cameraCuts || [];
+    const shiftedCaptions = captions || [];
+
     // Dynamic Cropping for 9:16
     let cropXExpr = '(iw-ow)/2'; // Center crop by default
-    if (aspectRatio === '9:16' && cameraCuts.length > 0) {
+    if (aspectRatio === '9:16' && shiftedCameraCuts.length > 0) {
         // Build nested if expressions for crop_x: if(between(t, start, end), crop_x, else)
-        let expr = `max(0,min(iw-ow,(iw*${cameraCuts[cameraCuts.length - 1].cx_percent || 0.5})-(ow/2)))`;
-        for (let i = cameraCuts.length - 1; i >= 0; i--) {
-            const c = cameraCuts[i];
+        let expr = `max(0,min(iw-ow,(iw*${shiftedCameraCuts[shiftedCameraCuts.length - 1].cx_percent || 0.5})-(ow/2)))`;
+        for (let i = shiftedCameraCuts.length - 1; i >= 0; i--) {
+            const c = shiftedCameraCuts[i];
             const cutExpr = `max(0,min(iw-ow,(iw*${c.cx_percent || 0.5})-(ow/2)))`;
             expr = `if(between(t,${c.start},${c.start + c.duration}),${cutExpr},${expr})`;
         }
@@ -355,8 +363,8 @@ export async function POST(req: Request) {
 
     let vfStr = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}:${cropXExpr}:0`;
 
-    if (captions.length > 0 && !isAudioOnly) {
-        const assContent = generateAssFile(captions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize, (style as any).backgroundBox, viralBouncyText);
+    if (shiftedCaptions.length > 0 && !isAudioOnly) {
+        const assContent = generateAssFile(shiftedCaptions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize, (style as any).backgroundBox, viralBouncyText);
         await writeFile(tempFilterPath, assContent, 'utf-8');
         const fontsDir = join(process.cwd(), 'public', 'fonts').replace(/\\/g, '/').replace(/:/g, '\\:');
         const safeAssPath = tempFilterPath.replace(/\\/g, '/').replace(/:/g, '\\:');
@@ -364,9 +372,9 @@ export async function POST(req: Request) {
     }
 
     let afStr = '';
-    if (viralRemoveSilence && captions.length > 0) {
+    if (viralRemoveSilence && shiftedCaptions.length > 0) {
         let segments: any[] = [];
-        captions.forEach((chunk: any) => {
+        shiftedCaptions.forEach((chunk: any) => {
             if (chunk.words) {
                 chunk.words.forEach((w: any) => {
                     segments.push({ start: w.start, end: w.end });
@@ -400,10 +408,6 @@ export async function POST(req: Request) {
             }
         }
     }
-
-    const startNum = parseFloat(startTime) || 0;
-    const endNum = parseFloat(endTime) || 0;
-    const duration = endNum - startNum;
 
     // FFMPEG Codec Selection
     let vCodec = 'libx264';

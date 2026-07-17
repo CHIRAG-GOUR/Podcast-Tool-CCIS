@@ -157,11 +157,18 @@ def analyze_video(video_path, output_json):
             # True speaking involves both high lip movement AND mouth openness
             lip_activity[sid["center"]].append(avg_vel * avg_mar)
             
-    # Normalize the activity scores so the primary speaker hits 1.0
+    # Normalize the activity scores globally so the primary speaker hits 1.0
+    global_max_act = 0
     for sid in speaker_clusters:
         act = lip_activity[sid["center"]]
-        max_act = max(act) if act and max(act) > 0 else 1
-        lip_activity[sid["center"]] = [a / max_act for a in act]
+        if act and max(act) > global_max_act:
+            global_max_act = max(act)
+            
+    if global_max_act == 0: global_max_act = 1
+            
+    for sid in speaker_clusters:
+        act = lip_activity[sid["center"]]
+        lip_activity[sid["center"]] = [a / global_max_act for a in act]
 
     # 5. Decide active speaker using Strong Hysteresis on Activity Score
     active_speaker = None
