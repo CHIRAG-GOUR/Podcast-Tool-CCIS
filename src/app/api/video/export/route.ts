@@ -277,6 +277,14 @@ export async function POST(req: Request) {
         } catch(e) {}
     }
     
+    const cameraCutsRaw = formData.get('cameraCuts') as string;
+    let cameraCuts: any[] = [];
+    if (cameraCutsRaw) {
+        try {
+            cameraCuts = JSON.parse(cameraCutsRaw);
+        } catch(e) {}
+    }
+    
     const canvasW = parseFloat(formData.get('canvas_width') as string) || 0;
     const canvasH = parseFloat(formData.get('canvas_height') as string) || 0;
 
@@ -322,7 +330,22 @@ export async function POST(req: Request) {
     await writeFile(tempVideoPath, buffer);
     console.log(`Saved temp video to ${tempVideoPath} for export with ratio ${targetWidth}x${targetHeight}`);
 
-    let vfStr = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}`;
+    // Dynamic Cropping for 9:16
+    let cropXExpr = '(iw-ow)/2'; // Center crop by default
+    if (aspectRatio === '9:16' && cameraCuts.length > 0) {
+        // Build nested if expressions for crop_x: if(between(t, start, end), crop_x, else)
+        let expr = `max(0,min(iw-ow,(iw*${cameraCuts[cameraCuts.length - 1].cx_percent || 0.5})-(ow/2)))`;
+        for (let i = cameraCuts.length - 1; i >= 0; i--) {
+            const c = cameraCuts[i];
+            const cutExpr = `max(0,min(iw-ow,(iw*${c.cx_percent || 0.5})-(ow/2)))`;
+            expr = `if(between(t,${c.start},${c.start + c.duration}),${cutExpr},${expr})`;
+        }
+        cropXExpr = `'${expr}'`;
+    } else {
+        cropXExpr = `'${cropXExpr}'`;
+    }
+
+    let vfStr = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}:${cropXExpr}:0`;
 
     if (captions.length > 0 && !isAudioOnly) {
         const assContent = generateAssFile(captions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize, (style as any).backgroundBox);

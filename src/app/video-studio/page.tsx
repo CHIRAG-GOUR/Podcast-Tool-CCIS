@@ -23,9 +23,12 @@ export default function VideoStudio() {
     setView('processing')
   }
 
+  const [cuts, setCuts] = useState<any[]>([])
+
   const handleProcessingComplete = (data: any) => {
     setClips(data.clips || [])
     setCaptions(data.captions || [])
+    setCuts(data.cuts || [])
     setView('studio')
   }
 
@@ -63,7 +66,7 @@ export default function VideoStudio() {
             animate={{ opacity: 1 }}
             className="h-full w-full"
           >
-            <StudioView file={file} fileUrl={fileUrl} clips={clips} initialCaptions={captions} />
+            <StudioView file={file} fileUrl={fileUrl} clips={clips} initialCaptions={captions} initialCuts={cuts} />
           </motion.div>
         )}
       </AnimatePresence>

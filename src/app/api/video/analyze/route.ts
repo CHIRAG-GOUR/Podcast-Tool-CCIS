@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { GoogleAIFileManager } from '@google/generative-ai/server';
-import { writeFile, unlink } from 'fs/promises';
+import { writeFile, readFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { v4 as uuidv4 } from 'uuid';
@@ -197,7 +197,21 @@ Return ONLY valid JSON without markdown formatting.`;
       { text: captionsPrompt }
     ]);
 
-    const [result, captionsResult] = await Promise.all([resultPromise, captionsPromise]);
+    // Run auto_framer.py to get facial recognition camera cuts
+    const cutsJsonPath = join(tmpdir(), `${uuidv4()}-cuts.json`);
+    const pythonScript = join(process.cwd(), 'scripts', 'auto_framer.py');
+    const framerPromise = execPromise(`python "${pythonScript}" "${tempFilePath}" "${cutsJsonPath}"`)
+      .then(async () => {
+          const cutsData = await readFile(cutsJsonPath, 'utf8');
+          await unlink(cutsJsonPath).catch(() => {});
+          return JSON.parse(cutsData).cuts || [];
+      })
+      .catch((err) => {
+          console.error("Auto framer failed:", err);
+          return [];
+      });
+
+    const [result, captionsResult, parsedCuts] = await Promise.all([resultPromise, captionsPromise, framerPromise]);
 
     const rawResponse = result.response.text();
     const rawCaptionsResponse = captionsResult.response.text();
@@ -246,7 +260,7 @@ Return ONLY valid JSON without markdown formatting.`;
       console.error("Failed to parse Gemini output (captions):", e);
     }
 
-    return NextResponse.json({ clips: parsedClips, captions: parsedCaptions });
+    return NextResponse.json({ clips: parsedClips, captions: parsedCaptions, cuts: parsedCuts });
   } catch (error: any) {
     console.error('Video Analysis API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });

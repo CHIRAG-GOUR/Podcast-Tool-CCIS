@@ -62,7 +62,7 @@ const CopyButton = ({ text }: { text: string }) => {
 };
 
 
-export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions, onBack }: any) {
+export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions, initialCuts, onBack }: any) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [videoDuration, setVideoDuration] = useState(0)
@@ -87,6 +87,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
   const [timelineHeight, setTimelineHeight] = useState(300)
   const [zoom, setZoom] = useState(100)
   const [tracks, setTracks] = useState([
+    { id: 'v3', type: 'cut', name: 'Camera Cuts', locked: false, hidden: false, muted: false },
     { id: 'v2', type: 'text', name: 'Captions', locked: false, hidden: false, muted: false },
     { id: 'v1', type: 'video', name: 'Video 1', locked: false, hidden: false, muted: false },
     { id: 'a1', type: 'audio', name: 'Audio 1', locked: false, hidden: false, muted: false }
@@ -95,7 +96,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
   // AI Clips & Project Clips
   const [aiClips, setAiClips] = useState(initialClips.length > 0 ? initialClips : [])
   const [projectClips, setProjectClips] = useState<any[]>(() => {
-    const defaultClips: any[] = [{ id: 'c1', trackId: 'v1', start: 0, end: 15, duration: 15, title: 'Podcast Source' }];
+    const defaultClips: any[] = [{ id: 'c1', trackId: 'v1', type: 'video', start: 0, end: 15, duration: 15, title: 'Podcast Source' }];
     if (initialCaptions && initialCaptions.length > 0) {
       defaultClips.push({
           id: 'cap_' + Date.now(),
@@ -110,6 +111,32 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
           style: { fontFamily: 'Inter', fontSize: 48, preset: 'dark' }
       });
     }
+    
+    if (initialCuts && initialCuts.length > 0) {
+        initialCuts.forEach((cut: any, index: number) => {
+            if (cut.start < 15) {
+                defaultClips.push({
+                    id: 'cut_' + index,
+                    trackId: 'v3',
+                    type: 'cut',
+                    start: cut.start,
+                    end: Math.min(cut.end, 15),
+                    duration: Math.min(cut.end, 15) - cut.start,
+                    title: cut.speaker === 'left' ? 'Speaker A (Crop)' : 'Speaker B (Crop)',
+                    cx_percent: cut.cx_percent !== undefined ? cut.cx_percent : 0.5,
+                    crop_y: cut.crop_y || 0
+                });
+            }
+        });
+    } else {
+        // Add mock camera cuts for 9:16 layout
+        defaultClips.push(
+           { id: 'cut1', trackId: 'v3', type: 'cut', start: 0, end: 4.5, duration: 4.5, title: 'Speaker A (Crop)', cx_percent: 0.25, crop_y: 0 },
+           { id: 'cut2', trackId: 'v3', type: 'cut', start: 4.5, end: 9.2, duration: 4.7, title: 'Speaker B (Crop)', cx_percent: 0.75, crop_y: 0 },
+           { id: 'cut3', trackId: 'v3', type: 'cut', start: 9.2, end: 15.0, duration: 5.8, title: 'Speaker A (Crop)', cx_percent: 0.25, crop_y: 0 }
+        );
+    }
+    
     return defaultClips;
   });
   const [activeClipId, setActiveClipId] = useState<string | null>('c1')
@@ -494,6 +521,48 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                   } else {
                                       setCaptionsGenerated(false);
                                   }
+
+                                  if (initialCuts && initialCuts.length > 0) {
+                                      const validCuts = initialCuts.filter((c: any) => c.end > mediaStart && c.start < mediaEnd);
+                                      validCuts.forEach((cut: any, idx: number) => {
+                                          const shiftedStart = Math.max(0, cut.start - mediaStart);
+                                          const shiftedEnd = Math.min(duration, cut.end - mediaStart);
+                                          if (shiftedEnd > shiftedStart) {
+                                              newClips.push({
+                                                  id: 'cut_' + Date.now() + '_' + idx,
+                                                  trackId: 'v3',
+                                                  type: 'cut',
+                                                  start: shiftedStart,
+                                                  end: shiftedEnd,
+                                                  duration: shiftedEnd - shiftedStart,
+                                                  title: `Camera: ${cut.speaker || 'Focus'}`,
+                                                  cx_percent: cut.cx_percent !== undefined ? cut.cx_percent : 0.5,
+                                                  crop_y: cut.crop_y || 0
+                                              });
+                                          }
+                                      });
+                                  } else {
+                                      // Auto-generate mock camera shifts if no real AI tracking data is available
+                                      let currentCutTime = 0;
+                                      let cutIdx = 1;
+                                      while (currentCutTime < duration) {
+                                          const cutDuration = Math.min(duration - currentCutTime, 3.5 + Math.random() * 2);
+                                          const isSpeakerA = cutIdx % 2 !== 0;
+                                          newClips.push({
+                                              id: 'cut_' + Date.now() + '_' + cutIdx,
+                                              trackId: 'v3',
+                                              type: 'cut',
+                                              start: currentCutTime,
+                                              end: currentCutTime + cutDuration,
+                                              duration: cutDuration,
+                                              title: isSpeakerA ? 'Speaker A (Crop)' : 'Speaker B (Crop)',
+                                              cx_percent: isSpeakerA ? 0.25 : 0.75,
+                                              crop_y: 0
+                                          });
+                                          currentCutTime += cutDuration;
+                                          cutIdx++;
+                                      }
+                                  }
                                   
                                   setProjectClips(newClips);
                                   setCurrentTime(0);
@@ -770,7 +839,28 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
              )}
 
              <div ref={previewContainerRef} style={{ containerType: 'inline-size' }} className={cn("relative bg-black rounded-lg shadow-2xl h-full max-h-full max-w-full overflow-hidden flex-shrink-0 mx-auto", aspectMap[aspectRatio] || 'aspect-video')}>
-                {fileUrl && (
+                {fileUrl && (() => {
+                  const cameraCuts = projectClips.filter(c => c.type === 'cut');
+                  const activeCut = cameraCuts.find(c => currentTime >= c.start && currentTime <= c.end);
+                  let objectPosition = 'center';
+                  let objectFit = 'object-contain';
+                  
+                  if (aspectRatio === '9:16' || aspectRatio === '1:1' || aspectRatio === '4:5') {
+                      objectFit = 'object-cover';
+                      if (aspectRatio === '9:16' && activeCut && activeCut.cx_percent !== undefined) {
+                          // Correct math for object-position:
+                          // We want cx_percent of the video to be at 50% of the container.
+                          // Let R = container_width / video_width = (9/16) / (16/9) = 0.3164
+                          const R = 0.3164;
+                          const P = (activeCut.cx_percent - 0.5 * R) / (1 - R);
+                          const percent = P * 100;
+                          objectPosition = `${Math.min(100, Math.max(0, percent))}% center`;
+                      } else {
+                          objectPosition = '50% center';
+                      }
+                  }
+
+                  return (
                   <video 
                     ref={videoRef}
                     src={fileUrl}
@@ -780,9 +870,10 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                          scale(${projectClips.find(c => c.type === 'video')?.transform?.scale || 1}) 
                          scaleX(${projectClips.find(c => c.type === 'video')?.transform?.scaleX || 1})
                          scaleY(${projectClips.find(c => c.type === 'video')?.transform?.scaleY || 1})
-                       `
+                       `,
+                       objectPosition
                     }}
-                    className="w-full h-full object-contain transition-all duration-300"
+                    className={`w-full h-full ${objectFit}`}
                     onTimeUpdate={(e) => {
                        const mainClip = projectClips.find(c => c.type === 'video');
                        const base = mainClip?.mediaStart || 0;
@@ -811,7 +902,8 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                     }}
                     loop
                   />
-                )}
+                  );
+                })()}
                 
                 {/* Canvas Elements */}
                 {projectClips.filter(c => c.type === 'text' && currentTime >= c.start && currentTime <= (c.start + c.duration)).map(clip => {
@@ -872,7 +964,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                 fontFamily: clip.style?.fontFamily || 'Inter',
                                 textAlign: 'center',
                                 whiteSpace: 'pre-wrap',
-                                maxWidth: '90%',
+                                maxWidth: '90cqw',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -1315,10 +1407,25 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                   {(!activeClip || activeClip.type !== 'text') && (
                      <>
                         <div className={cn("w-full h-px", borderCol, "border-b")} />
-                        <div className="space-y-3">
-                           <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2", textMuted)}><Crop className="w-3 h-3"/> Crop & Mask</h4>
-                           <button className={cn("w-full py-1.5 border rounded text-xs transition-colors", borderCol, textHighlight, bgHover)}>Edit Crop Mask</button>
-                        </div>
+                        
+                        {activeClip?.type === 'cut' ? (
+                           <div className="space-y-3">
+                              <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-orange-500")}><Crop className="w-3 h-3"/> AI Auto-Framing</h4>
+                              <p className={cn("text-[10px]", textMuted, "leading-tight mb-2")}>Manually override the AI's camera position for this specific cut.</p>
+                              <div className="space-y-2">
+                                 <div className={cn("flex justify-between text-[10px]", textMuted)}><span>Horizontal Pan (Center X)</span> <span>{Math.round((activeClip.cx_percent || 0.5) * 100)}%</span></div>
+                                 <input type="range" min="0" max="100" value={(activeClip.cx_percent || 0.5) * 100} onChange={e=> {
+                                     const newClips = projectClips.map(c => c.id === activeClip.id ? { ...c, cx_percent: Number(e.target.value) / 100 } : c);
+                                     setProjectClips(newClips);
+                                 }} className="w-full accent-orange-500" />
+                              </div>
+                           </div>
+                        ) : (
+                           <div className="space-y-3">
+                              <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2", textMuted)}><Crop className="w-3 h-3"/> Crop & Mask</h4>
+                              <button className={cn("w-full py-1.5 border rounded text-xs transition-colors", borderCol, textHighlight, bgHover)}>Edit Crop Mask</button>
+                           </div>
+                        )}
                      </>
                   )}
                </div>
@@ -1383,6 +1490,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                            {t.type === 'video' && <FileVideo className="w-3 h-3 text-blue-400"/>}
                            {t.type === 'audio' && <AudioWaveform className="w-3 h-3 text-green-400"/>}
                            {t.type === 'text' && <Type className="w-3 h-3 text-purple-400"/>}
+                           {t.type === 'cut' && <Video className="w-3 h-3 text-orange-400"/>}
                            {t.id.toUpperCase()}
                         </span>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1455,7 +1563,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                   
                   {tracks.map(t => (
                      <div key={t.id} className={cn("h-16 border-b relative", borderCol)}>
-                        {t.type === 'video' && projectClips.map(c => (
+                        {t.type === 'video' && projectClips.filter(c => c.type === 'video').map(c => (
                            <div key={c.id} className={cn(
                               "absolute h-14 top-1 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col",
                               activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-blue-500/50 hover:border-blue-400"
@@ -1480,6 +1588,30 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                               </div>
                            </div>
                         ))}
+                        {t.type === 'text' && projectClips.filter(c => c.type === 'text').map(c => (
+                           <div key={c.id} className={cn(
+                              "absolute h-14 top-1 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col justify-center items-center",
+                              activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-purple-500/50 hover:border-purple-400"
+                           )}
+                           style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
+                           onClick={() => setActiveClipId(c.id)}
+                           >
+                              <div className="absolute inset-0 bg-purple-500/20" />
+                              <span className="text-xs font-bold text-purple-100 relative z-10 truncate px-2">{c.title}</span>
+                           </div>
+                        ))}
+                        {t.type === 'cut' && projectClips.filter(c => c.type === 'cut').map(c => (
+                           <div key={c.id} className={cn(
+                              "absolute h-10 top-3 rounded-md overflow-hidden border transition-all cursor-pointer flex flex-col justify-center items-center",
+                              activeClipId === c.id ? "border-white z-10 shadow-[0_0_0_1px_rgba(255,255,255,1)]" : "border-orange-500/50 hover:border-orange-400"
+                           )}
+                           style={{ left: `${c.start * zoom}px`, width: `${c.duration * zoom}px` }}
+                           onClick={() => setActiveClipId(c.id)}
+                           >
+                              <div className="absolute inset-0 bg-orange-500/20" />
+                              <span className="text-[10px] font-bold text-orange-100 relative z-10 truncate px-2">{c.title}</span>
+                           </div>
+                        ))}
                         
                         {/* Fake gap indicator if multiple clips exist */}
                         {t.type === 'video' && projectClips.length > 1 && (
@@ -1491,7 +1623,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                             </div>
                         )}
                         
-                        {t.type === 'audio' && projectClips.map(c => (
+                        {t.type === 'audio' && projectClips.filter(c => c.type === 'audio').map(c => (
                            <div key={c.id} className={cn(
                               "absolute h-14 top-1 rounded-md overflow-hidden border transition-all",
                               "border-green-500/50 bg-green-500/10"
@@ -1679,6 +1811,11 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                        formData.append("canvas_width", previewContainerRef.current.clientWidth.toString());
                                        formData.append("canvas_height", previewContainerRef.current.clientHeight.toString());
                                    }
+                                }
+                                
+                                const cameraCuts = projectClips.filter(c => c.type === 'cut');
+                                if (cameraCuts.length > 0) {
+                                   formData.append("cameraCuts", JSON.stringify(cameraCuts));
                                 }
 
                                 // Mock progress while waiting
