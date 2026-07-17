@@ -169,8 +169,14 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
   
   const activeClip = projectClips.find(c => c.id === activeClipId)
   
-  const updateActiveClipTransform = (newTransform: Transform) => {
-     setProjectClips(prev => prev.map(c => c.id === activeClipId ? { ...c, transform: newTransform } : c));
+  const updateActiveClipTransform = (newTransform: Partial<Transform>) => {
+     setProjectClips(prev => prev.map(c => {
+       if (c.id === activeClipId) {
+         const baseT = c.transform || { x: 50, y: 50, width: 200, height: 200, scale: 100, rotation: 0, opacity: 100, zIndex: 50 };
+         return { ...c, transform: { ...baseT, ...newTransform } as Transform };
+       }
+       return c;
+     }));
   }
   
   const updateActiveClipStyle = (updates: any) => {
@@ -303,7 +309,10 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
          if (copied) {
             const parsed = JSON.parse(copied);
             parsed.id = 'c_' + Date.now();
-            if (parsed.transform) parsed.transform.y += 20;
+            if (parsed.transform) {
+               parsed.transform = { x: 50, y: 50, width: 200, height: 200, scale: 100, rotation: 0, opacity: 100, zIndex: 50, ...parsed.transform };
+               parsed.transform.y += 20;
+            }
             setProjectClips(p => [...p, parsed]);
             setActiveClipId(parsed.id);
          }
@@ -312,14 +321,18 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
          if (activeClip) {
             const dupe = JSON.parse(JSON.stringify(activeClip));
             dupe.id = 'c_' + Date.now();
-            if (dupe.transform) { dupe.transform.x += 20; dupe.transform.y += 20; }
+            if (dupe.transform) { 
+               dupe.transform = { x: 50, y: 50, width: 200, height: 200, scale: 100, rotation: 0, opacity: 100, zIndex: 50, ...dupe.transform };
+               dupe.transform.x += 20; 
+               dupe.transform.y += 20; 
+            }
             setProjectClips(p => [...p, dupe]);
             setActiveClipId(dupe.id);
          }
       } else if (e.key.startsWith('Arrow') && activeClip?.transform) {
          e.preventDefault();
          const step = e.shiftKey ? 10 : 1;
-         const newT = { ...activeClip.transform };
+         const newT = { x: 50, y: 50, width: 200, height: 200, scale: 100, rotation: 0, opacity: 100, zIndex: 50, ...activeClip.transform };
          if (e.key === 'ArrowUp') newT.y -= step;
          if (e.key === 'ArrowDown') newT.y += step;
          if (e.key === 'ArrowLeft') newT.x -= step;
@@ -977,7 +990,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                      <EditableCanvasNode
                        key={clip.id}
                        id={clip.id}
-                       transform={clip.transform}
+                       transform={clip.transform || { x: 0, y: 150, width: 600, height: 60, scale: 100, rotation: 0 }}
                        isSelected={isSelected}
                        onSelect={() => setActiveClipId(clip.id)}
                        onChange={(newTransform) => {
@@ -1231,7 +1244,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                      <EditableCanvasNode
                        key={clip.id}
                        id={clip.id}
-                       transform={clip.transform}
+                       transform={clip.transform || { x: 50, y: 50, width: 200, height: 200, scale: 100, rotation: 0 }}
                        isSelected={isSelected}
                        onSelect={() => setActiveClipId(clip.id)}
                        onChange={(newTransform) => {
