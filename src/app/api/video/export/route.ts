@@ -173,7 +173,7 @@ PlayResY: ${videoHeight}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Spacing, Angle, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Captions,${fontName},${baseFontSize},${colors},${styleProps},0,2,20,20,${Math.round(videoHeight * 0.1)},1
+Style: Captions,${fontName},${baseFontSize},${colors},${styleProps},0,2,${Math.round(videoWidth * 0.08)},${Math.round(videoWidth * 0.08)},${Math.round(videoHeight * 0.1)},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

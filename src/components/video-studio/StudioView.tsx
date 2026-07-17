@@ -1012,7 +1012,8 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                 fontFamily: clip.style?.fontFamily || 'Inter',
                                 textAlign: 'center',
                                 whiteSpace: 'pre-wrap',
-                                maxWidth: '90cqw',
+                                maxWidth: '90cqi',
+                                width: 'max-content',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -1397,22 +1398,23 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                               
 <div className="grid grid-cols-2 gap-2">
     {[
-        { id: 'hormozi', name: 'Opus Pro (Hormozi)', desc: 'Bold & Yellow' },
-        { id: 'beast', name: 'MrBeast', desc: 'Loud & Slanted' },
-        { id: 'modern-clean', name: 'Modern Clean', desc: 'Minimal & Corporate' },
-        { id: 'paper-cut', name: 'Paper Cut', desc: 'Handwritten & Paper' },
-        { id: 'tiktok', name: 'TikTok Default', desc: 'Bouncy & Colorful' },
-        { id: 'skillizee', name: 'Skillizee', desc: 'Brand Blue Highlight' },
-        { id: 'netflix', name: 'Netflix', desc: 'Classic TV Subtitles' },
-        { id: 'ali', name: 'Ali Abdaal', desc: 'Orange Pop' },
-        { id: 'neon', name: 'Neon Glow', desc: 'Cyberpunk Aesthetic' },
-        { id: 'cinematic-bold', name: 'Cinematic Bold', desc: 'Chunky & Engaging' },
-        { id: 'cinematic-elegant', name: 'Cinematic Serif', desc: 'Elegant (Euphoria)' },
-        { id: 'cinematic-condensed', name: 'Cinematic Sans', desc: 'Condensed (Sunlight)' }
+        { id: 'hormozi', name: 'Opus Pro (Hormozi)', desc: 'Bold & Yellow', font: 'Montserrat, sans-serif' },
+        { id: 'beast', name: 'MrBeast', desc: 'Loud & Slanted', font: 'Impact, sans-serif' },
+        { id: 'modern-clean', name: 'Modern Clean', desc: 'Minimal & Corporate', font: 'Inter, sans-serif' },
+        { id: 'paper-cut', name: 'Paper Cut', desc: 'Handwritten & Paper', font: '"Segoe Print", sans-serif' },
+        { id: 'tiktok', name: 'TikTok Default', desc: 'Bouncy & Colorful', font: 'Arial, sans-serif' },
+        { id: 'skillizee', name: 'Skillizee', desc: 'Brand Blue Highlight', font: 'Inter, sans-serif' },
+        { id: 'netflix', name: 'Netflix', desc: 'Classic TV Subtitles', font: 'Arial, sans-serif' },
+        { id: 'ali', name: 'Ali Abdaal', desc: 'Orange Pop', font: 'Inter, sans-serif' },
+        { id: 'neon', name: 'Neon Glow', desc: 'Cyberpunk Aesthetic', font: 'Inter, sans-serif' },
+        { id: 'cinematic-bold', name: 'Cinematic Bold', desc: 'Chunky & Engaging', font: 'Impact, sans-serif' },
+        { id: 'cinematic-elegant', name: 'Cinematic Serif', desc: 'Elegant (Euphoria)', font: 'Georgia, serif' },
+        { id: 'cinematic-condensed', name: 'Cinematic Sans', desc: 'Condensed (Sunlight)', font: '"Arial Narrow", Roboto Condensed, sans-serif' }
     ].map(preset => (
         <button 
             key={preset.id}
             onClick={() => updateActiveClipStyle({ preset: preset.id })}
+            style={{ fontFamily: preset.font }}
             className={cn(
                 "p-2 text-center rounded border transition-colors flex flex-col items-center justify-center truncate",
                 (activeClip.style.preset === preset.id || (!activeClip.style.preset && preset.id === 'hormozi')) 
@@ -1421,7 +1423,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
             )}
         >
             <span className="text-[10px] font-bold">{preset.name}</span>
-            <span className="text-[8px] opacity-75 font-normal mt-0.5">{preset.desc}</span>
+            <span className="text-[8px] opacity-75 mt-0.5" style={{ fontFamily: 'Inter, sans-serif' }}>{preset.desc}</span>
         </button>
     ))}
 </div>
