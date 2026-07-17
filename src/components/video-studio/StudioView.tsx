@@ -1398,32 +1398,33 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                               
 <div className="grid grid-cols-2 gap-2">
     {[
-        { id: 'hormozi', name: 'Opus Pro (Hormozi)', desc: 'Bold & Yellow', font: 'Montserrat, sans-serif' },
-        { id: 'beast', name: 'MrBeast', desc: 'Loud & Slanted', font: 'Impact, sans-serif' },
-        { id: 'modern-clean', name: 'Modern Clean', desc: 'Minimal & Corporate', font: 'Inter, sans-serif' },
-        { id: 'paper-cut', name: 'Paper Cut', desc: 'Handwritten & Paper', font: '"Segoe Print", sans-serif' },
-        { id: 'tiktok', name: 'TikTok Default', desc: 'Bouncy & Colorful', font: 'Arial, sans-serif' },
-        { id: 'skillizee', name: 'Skillizee', desc: 'Brand Blue Highlight', font: 'Inter, sans-serif' },
-        { id: 'netflix', name: 'Netflix', desc: 'Classic TV Subtitles', font: 'Arial, sans-serif' },
-        { id: 'ali', name: 'Ali Abdaal', desc: 'Orange Pop', font: 'Inter, sans-serif' },
-        { id: 'neon', name: 'Neon Glow', desc: 'Cyberpunk Aesthetic', font: 'Inter, sans-serif' },
-        { id: 'cinematic-bold', name: 'Cinematic Bold', desc: 'Chunky & Engaging', font: 'Impact, sans-serif' },
-        { id: 'cinematic-elegant', name: 'Cinematic Serif', desc: 'Elegant (Euphoria)', font: 'Georgia, serif' },
-        { id: 'cinematic-condensed', name: 'Cinematic Sans', desc: 'Condensed (Sunlight)', font: '"Arial Narrow", Roboto Condensed, sans-serif' }
+        { id: 'hormozi', name: 'Opus Pro (Hormozi)', desc: 'Bold & Yellow', font: 'Montserrat, sans-serif', previewStyle: { fontFamily: 'Montserrat, sans-serif', fontWeight: 900, textTransform: 'uppercase', WebkitTextStroke: '0.5px black', color: '#FFFF00', textShadow: '0 1px 3px rgba(0,0,0,0.8)' } },
+        { id: 'beast', name: 'MrBeast', desc: 'Loud & Slanted', font: 'Impact, sans-serif', previewStyle: { fontFamily: 'Impact, sans-serif', fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', WebkitTextStroke: '0.5px black', color: '#00FFFF', textShadow: '1px 1px 0 black' } },
+        { id: 'modern-clean', name: 'Modern Clean', desc: 'Minimal & Corporate', font: 'Inter, sans-serif', previewStyle: { fontFamily: 'Inter, sans-serif', fontWeight: 600, backgroundColor: 'white', color: '#3B82F6', borderRadius: '2px', padding: '2px 4px', borderLeft: '3px solid #6366F1' } },
+        { id: 'paper-cut', name: 'Paper Cut', desc: 'Handwritten & Paper', font: '"Segoe Print", sans-serif', previewStyle: { fontFamily: '"Segoe Print", sans-serif', fontWeight: 700, backgroundColor: '#DDF0F6', color: '#FF0000', padding: '1px 4px', border: '1px solid black', boxShadow: '1px 1px 0 rgba(0,0,0,1)' } },
+        { id: 'tiktok', name: 'TikTok Default', desc: 'Bouncy & Colorful', font: 'Arial, sans-serif', previewStyle: { fontFamily: 'Montserrat, sans-serif', fontWeight: 800, WebkitTextStroke: '0.5px black', color: '#FFFF00', textShadow: '1px 1px 2px black' } },
+        { id: 'skillizee', name: 'Skillizee', desc: 'Brand Blue Highlight', font: 'Inter, sans-serif', previewStyle: { fontFamily: 'Inter, sans-serif', fontWeight: 800, WebkitTextStroke: '0.5px black', color: '#2563EB' } },
+        { id: 'netflix', name: 'Netflix', desc: 'Classic TV Subtitles', font: 'Arial, sans-serif', previewStyle: { fontFamily: 'Arial, sans-serif', fontWeight: 600, color: '#FFFF00', textShadow: '0 1px 3px rgba(0,0,0,0.8)' } },
+        { id: 'ali', name: 'Ali Abdaal', desc: 'Orange Pop', font: 'Inter, sans-serif', previewStyle: { fontFamily: 'Inter, sans-serif', fontWeight: 700, color: '#FFA500', textShadow: '0 2px 4px rgba(0,0,0,0.5)' } },
+        { id: 'neon', name: 'Neon Glow', desc: 'Cyberpunk Aesthetic', font: 'Inter, sans-serif', previewStyle: { fontFamily: 'Inter, sans-serif', fontWeight: 800, fontStyle: 'italic', color: '#00FFFF', textShadow: '0 0 2px #FF00FF, 0 0 4px #FF00FF' } },
+        { id: 'cinematic-bold', name: 'Cinematic Bold', desc: 'Chunky & Engaging', font: 'Impact, sans-serif', previewStyle: { fontFamily: '"Montserrat", "Arial Black", sans-serif', fontWeight: 900, letterSpacing: '-0.02em', WebkitTextStroke: '0.5px black', color: '#FFFFFF', textShadow: '0 1px 0 rgba(0,0,0,0.8)' } },
+        { id: 'cinematic-elegant', name: 'Cinematic Serif', desc: 'Elegant (Euphoria)', font: 'Georgia, serif', previewStyle: { fontFamily: '"Playfair Display", "Cinzel", "Didot", serif', fontWeight: 400, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#FFFFFF', textShadow: '0 1px 3px rgba(0,0,0,0.9)' } },
+        { id: 'cinematic-condensed', name: 'Cinematic Sans', desc: 'Condensed (Sunlight)', font: '"Arial Narrow", Roboto Condensed, sans-serif', previewStyle: { fontFamily: '"Bebas Neue", "Anton", "Oswald", "Impact", sans-serif', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.02em', color: '#FF8C00', textShadow: '0 1px 4px rgba(0,0,0,0.9)' } }
     ].map(preset => (
         <button 
             key={preset.id}
             onClick={() => updateActiveClipStyle({ preset: preset.id })}
-            style={{ fontFamily: preset.font }}
             className={cn(
-                "p-2 text-center rounded border transition-colors flex flex-col items-center justify-center truncate",
+                "py-3 px-1 text-center rounded border transition-colors flex flex-col items-center justify-center truncate",
                 (activeClip.style.preset === preset.id || (!activeClip.style.preset && preset.id === 'hormozi')) 
-                    ? "bg-[#6366F1] text-white border-[#6366F1]" 
-                    : (theme === 'dark' ? "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700" : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200")
+                    ? "bg-[#6366F1]/20 border-[#6366F1]" // Lighter selection background so text colors remain clearly visible
+                    : (theme === 'dark' ? "bg-gray-800 border-gray-700 hover:bg-gray-700" : "bg-gray-100 border-gray-300 hover:bg-gray-200")
             )}
         >
-            <span className="text-[10px] font-bold">{preset.name}</span>
-            <span className="text-[8px] opacity-75 mt-0.5" style={{ fontFamily: 'Inter, sans-serif' }}>{preset.desc}</span>
+            <div className="flex-1 flex items-center justify-center min-h-[30px]">
+                <span className="text-[12px] leading-tight" style={preset.previewStyle as any}>{preset.name}</span>
+            </div>
+            <span className="text-[9px] opacity-75 mt-1" style={{ fontFamily: 'Inter, sans-serif', color: theme === 'dark' ? '#9CA3AF' : '#4B5563' }}>{preset.desc}</span>
         </button>
     ))}
 </div>
@@ -1433,10 +1434,12 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                            <div className="space-y-2 mt-4">
                               <label className={cn("text-[10px] uppercase font-bold", textMuted)}>Font Family</label>
                               <select value={activeClip.style.fontFamily} onChange={e => updateActiveClipStyle({ fontFamily: e.target.value })} className={cn("w-full p-2 text-xs rounded border", bgMain, borderCol, textHighlight)}>
-                                 <option value="Inter">Inter</option>
-                                 <option value="Arial">Arial</option>
-                                 <option value="Impact">Impact</option>
-                                 <option value="Georgia">Georgia</option>
+                                  <option value="Inter" style={{ fontFamily: 'Inter, sans-serif' }}>Inter</option>
+                                  <option value="Arial" style={{ fontFamily: 'Arial, sans-serif' }}>Arial</option>
+                                  <option value="Impact" style={{ fontFamily: 'Impact, sans-serif' }}>Impact</option>
+                                  <option value="Georgia" style={{ fontFamily: 'Georgia, serif' }}>Georgia</option>
+                                  <option value="Montserrat" style={{ fontFamily: 'Montserrat, sans-serif' }}>Montserrat</option>
+                                  <option value="Segoe Print" style={{ fontFamily: '"Segoe Print", sans-serif' }}>Segoe Print</option>
                               </select>
                            </div>
                            
