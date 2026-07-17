@@ -36,7 +36,7 @@ function formatAssTime(seconds: number) {
     return `${h}:${m.toString().padStart(2, '0')}:${Math.floor(s).toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
 }
 
-function generateAssFile(captions: any[], videoWidth: number, videoHeight: number, preset: string = 'hormozi', userFontSize: number = 48, backgroundBox: string = 'none') {
+function generateAssFile(captions: any[], videoWidth: number, videoHeight: number, preset: string = 'hormozi', userFontSize: number = 48, backgroundBox: string = 'none', bouncyText: boolean = false) {
     const fontSize = userFontSize || 48;
     
     let fontName = 'Inter';
@@ -233,7 +233,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         let suffix = `\\c${inactiveColor}${inactiveExtraTags}`;
                         
                         if (activeScale) {
-                            sentence += `{\\fscx115\\fscy115${prefix}}${cw.word}{\\fscx100\\fscy100${suffix}} `;
+                            if (bouncyText) {
+                                sentence += `{\\t(0,50,\\fscx125\\fscy125)\\t(50,200,\\fscx100\\fscy100)${prefix}}${cw.word}{\\fscx100\\fscy100${suffix}} `;
+                            } else {
+                                sentence += `{\\fscx115\\fscy115${prefix}}${cw.word}{\\fscx100\\fscy100${suffix}} `;
+                            }
                         } else {
                             sentence += `{${prefix}}${cw.word}{${suffix}} `;
                         }
@@ -262,6 +266,10 @@ export async function POST(req: Request) {
     const exportRes = formData.get('export_res') as string || '1080p';
     const exportFps = formData.get('export_fps') as string || '30';
     const exportCodec = formData.get('export_codec') as string || 'h264';
+    
+    const viralRemoveSilence = formData.get('viral_remove_silence') === 'true';
+    const viralSoundDesign = formData.get('viral_sound_design') === 'true';
+    const viralBouncyText = formData.get('viral_bouncy_text') === 'true';
     
     if (!file) {
       return NextResponse.json({ error: 'No video file provided' }, { status: 400 });
@@ -348,11 +356,49 @@ export async function POST(req: Request) {
     let vfStr = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}:${cropXExpr}:0`;
 
     if (captions.length > 0 && !isAudioOnly) {
-        const assContent = generateAssFile(captions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize, (style as any).backgroundBox);
+        const assContent = generateAssFile(captions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize, (style as any).backgroundBox, viralBouncyText);
         await writeFile(tempFilterPath, assContent, 'utf-8');
         const fontsDir = join(process.cwd(), 'public', 'fonts').replace(/\\/g, '/').replace(/:/g, '\\:');
         const safeAssPath = tempFilterPath.replace(/\\/g, '/').replace(/:/g, '\\:');
         vfStr += `,subtitles='${safeAssPath}':fontsdir='${fontsDir}'`;
+    }
+
+    let afStr = '';
+    if (viralRemoveSilence && captions.length > 0) {
+        let segments: any[] = [];
+        captions.forEach((chunk: any) => {
+            if (chunk.words) {
+                chunk.words.forEach((w: any) => {
+                    segments.push({ start: w.start, end: w.end });
+                });
+            }
+        });
+        
+        let mergedSegments = [];
+        if (segments.length > 0) {
+            let current = { start: Math.max(0, segments[0].start - 0.1), end: segments[0].end + 0.1 };
+            for (let i = 1; i < segments.length; i++) {
+                let nextStart = segments[i].start - 0.1;
+                let nextEnd = segments[i].end + 0.1;
+                
+                // If gap is less than 0.4s, merge them to avoid choppy audio
+                if (nextStart - current.end < 0.4) {
+                    current.end = Math.max(current.end, nextEnd);
+                } else {
+                    mergedSegments.push(current);
+                    current = { start: nextStart, end: nextEnd };
+                }
+            }
+            mergedSegments.push(current);
+        }
+        
+        if (mergedSegments.length > 0) {
+            const keepExprs = mergedSegments.map(seg => `between(t,${seg.start.toFixed(2)},${seg.end.toFixed(2)})`).join('+');
+            if (keepExprs.length > 0) {
+                vfStr += `,select='${keepExprs}',setpts=N/FRAME_RATE/TB`;
+                afStr = `aselect='${keepExprs}',asetpts=N/SR/TB`;
+            }
+        }
     }
 
     const startNum = parseFloat(startTime) || 0;
@@ -389,16 +435,45 @@ export async function POST(req: Request) {
        else if (exportFormat === 'aac') { aCodec = 'aac'; ext = 'aac'; }
     }
 
+    let audioInputs = '';
+    if (viralSoundDesign) {
+        // Generate a subtle cinematic bass rumble (brown noise) as a placeholder for trending audio
+        audioInputs = ` -f lavfi -i "anoisesrc=color=brown:amplitude=0.03"`;
+        if (afStr) {
+            afStr = `[0:a]${afStr}[a0];[1:a]volume=0.2[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2`;
+        } else {
+            afStr = `[0:a]volume=1.0[a0];[1:a]volume=0.2[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2`;
+        }
+    }
+
     // Build FFMPEG command
-    let ffmpegCmd = `"${ffmpegInstaller.path}" -y -ss ${startNum} -t ${duration} -i "${tempVideoPath}"`;
+    let ffmpegCmd = `"${ffmpegInstaller.path}" -y -ss ${startNum} -t ${duration} -i "${tempVideoPath}"${audioInputs}`;
     
     if (!isAudioOnly) {
-        ffmpegCmd += ` -vf "${vfStr}" -r ${exportFps} -c:v ${vCodec} ${extraArgs}`;
-        if (aCodec) {
-            ffmpegCmd += ` -c:a ${aCodec} -b:a 128k`;
+        if (viralSoundDesign || (afStr && afStr.includes('[a0]'))) {
+            // Complex filtergraph required
+            const complexFilter = `[0:v]${vfStr}[v];${afStr}[a]`;
+            ffmpegCmd += ` -filter_complex "${complexFilter}" -map "[v]" -map "[a]" -r ${exportFps} -c:v ${vCodec} ${extraArgs}`;
+            if (aCodec) {
+                ffmpegCmd += ` -c:a ${aCodec} -b:a 128k`;
+            }
+        } else {
+            // Simple filters
+            ffmpegCmd += ` -vf "${vfStr}" -r ${exportFps} -c:v ${vCodec} ${extraArgs}`;
+            if (aCodec) {
+                if (afStr) {
+                    ffmpegCmd += ` -af "${afStr}" -c:a ${aCodec} -b:a 128k`;
+                } else {
+                    ffmpegCmd += ` -c:a ${aCodec} -b:a 128k`;
+                }
+            }
         }
     } else {
-        ffmpegCmd += ` -vn -c:a ${aCodec} -b:a 192k`;
+        if (afStr) {
+            ffmpegCmd += ` -vn -af "${afStr}" -c:a ${aCodec} -b:a 192k`;
+        } else {
+            ffmpegCmd += ` -vn -c:a ${aCodec} -b:a 192k`;
+        }
     }
     
     ffmpegCmd += ` "${tempOutputPath}"`;

@@ -239,6 +239,9 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
   const [exportFps, setExportFps] = useState('30')
   const [exportCodec, setExportCodec] = useState('h264')
   const [exportError, setExportError] = useState('')
+  const [autoSilenceRemove, setAutoSilenceRemove] = useState(true)
+  const [addSoundDesign, setAddSoundDesign] = useState(true)
+  const [bouncyText, setBouncyText] = useState(true)
   // Theming
   const bgMain = theme === 'dark' ? "bg-[#0F0F0F]" : "bg-gray-50"
   const bgPanel = theme === 'dark' ? "bg-[#141414]" : "bg-white"
@@ -1893,6 +1896,21 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                               </select>
                            </div>
                         </div>
+                        <div className="space-y-3 pt-2">
+                           <h3 className={cn("text-xs font-bold uppercase tracking-wider", textMuted)}>Viral Optimization</h3>
+                           <label className="flex items-center gap-2 text-sm cursor-pointer">
+                              <input type="checkbox" checked={autoSilenceRemove} onChange={e=>setAutoSilenceRemove(e.target.checked)} className="rounded" />
+                              <span className={textMain}>Auto-Remove Silences (Jump Cuts)</span>
+                           </label>
+                           <label className="flex items-center gap-2 text-sm cursor-pointer">
+                              <input type="checkbox" checked={addSoundDesign} onChange={e=>setAddSoundDesign(e.target.checked)} className="rounded" />
+                              <span className={textMain}>Background Music & SFX Mix</span>
+                           </label>
+                           <label className="flex items-center gap-2 text-sm cursor-pointer">
+                              <input type="checkbox" checked={bouncyText} onChange={e=>setBouncyText(e.target.checked)} className="rounded" />
+                              <span className={textMain}>Dynamic Text Animations (Spring Bounce)</span>
+                           </label>
+                        </div>
                         <div className="space-y-2">
                            <label className={cn("text-xs font-semibold", textMuted)}>Export Range</label>
                            <select value={exportRange} onChange={e=>setExportRange(e.target.value as any)} className={cn("w-full p-2 rounded border text-sm", borderCol, bgSidebar, textHighlight)}>
@@ -1938,6 +1956,9 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                 formData.append("export_res", exportRes);
                                 formData.append("export_fps", exportFps);
                                 formData.append("export_codec", exportCodec);
+                                formData.append("viral_remove_silence", autoSilenceRemove ? "true" : "false");
+                                formData.append("viral_sound_design", addSoundDesign ? "true" : "false");
+                                formData.append("viral_bouncy_text", bouncyText ? "true" : "false");
                                 
                                 if (textClip) {
                                    // Send captions style and chunks
