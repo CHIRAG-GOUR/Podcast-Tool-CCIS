@@ -293,6 +293,14 @@ export async function POST(req: Request) {
         } catch(e) {}
     }
     
+    const projectClipsRaw = formData.get('projectClips') as string;
+    let projectClips: any[] = [];
+    if (projectClipsRaw) {
+        try {
+            projectClips = JSON.parse(projectClipsRaw);
+        } catch(e) {}
+    }
+    
     const canvasW = parseFloat(formData.get('canvas_width') as string) || 0;
     const canvasH = parseFloat(formData.get('canvas_height') as string) || 0;
 
@@ -441,12 +449,34 @@ export async function POST(req: Request) {
 
     let audioInputs = '';
     if (viralSoundDesign) {
-        // Generate a subtle cinematic bass rumble (brown noise) as a placeholder for trending audio
-        audioInputs = ` -f lavfi -i "anoisesrc=color=brown:amplitude=0.03"`;
+        // Generate a subtle cinematic bass rumble (brown noise) with volume spikes on camera cuts/b-roll
+        audioInputs = ` -f lavfi -i "anoisesrc=color=brown:amplitude=1.0"`;
+        
+        // Build volume equation: base rumble (0.02) + spikes
+        let volEq = '0.02';
+        
+        // Impact at the very beginning
+        volEq += ` + 0.8*exp(-((t-0.1)^2)/0.02)`;
+        
+        if (shiftedCameraCuts && shiftedCameraCuts.length > 0) {
+            shiftedCameraCuts.forEach((c: any) => {
+                if (c.start > 0.5) volEq += ` + 0.5*exp(-((t-${c.start.toFixed(2)})^2)/0.01)`;
+            });
+        }
+        
+        // B-Roll overlays
+        const overlays = projectClips?.filter((c: any) => c.trackId === 'v4' && c.type === 'image') || [];
+        overlays.forEach((o: any) => {
+            if (o.start > 0.5) volEq += ` + 0.6*exp(-((t-${o.start.toFixed(2)})^2)/0.015)`;
+        });
+
+        // Filter: lowpass for cinematic muffled feel, then dynamic volume
+        const sfxChain = `lowpass=f=800,volume='${volEq}':eval=frame[sfx]`;
+        
         if (afStr) {
-            afStr = `[0:a]${afStr}[a0];[1:a]volume=0.2[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2`;
+            afStr = `[0:a]${afStr}[a0];[1:a]${sfxChain};[a0][sfx]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.8`;
         } else {
-            afStr = `[0:a]volume=1.0[a0];[1:a]volume=0.2[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2`;
+            afStr = `[0:a]volume=1.0[a0];[1:a]${sfxChain};[a0][sfx]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.8`;
         }
     }
 

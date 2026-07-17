@@ -611,7 +611,6 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                           cutIdx++;
                                       }
                                   }
-                                  
                                   setProjectClips(newClips);
                                   setCurrentTime(0);
                                   if (videoRef.current) {
@@ -776,6 +775,22 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                              <CopyButton text={socialClip.hashtags} />
                                          </div>
                                          <p className={cn("text-[10px] font-semibold text-[#6366F1]")}>{socialClip.hashtags}</p>
+                                     </div>
+                                 )}
+                                 {socialClip.broll && socialClip.broll.length > 0 && (
+                                     <div className="mt-2 pt-2 border-t border-gray-700/30">
+                                         <span className={cn("text-[9px] font-bold uppercase tracking-wider text-pink-500 mb-2 block")}>Suggested B-Roll</span>
+                                         <div className="flex flex-col gap-2">
+                                             {socialClip.broll.map((br: any, idx: number) => (
+                                                 <div key={idx} className="bg-black/20 p-2 rounded flex gap-2 items-start">
+                                                     <img src={`https://image.pollinations.ai/prompt/${encodeURIComponent(br.keyword)}?width=150&height=150&nologo=true`} className="w-12 h-12 rounded object-cover shrink-0 bg-black/40" alt={br.keyword} />
+                                                     <div className="flex-1">
+                                                         <p className="text-[10px] font-semibold text-white">"{br.keyword}"</p>
+                                                         <p className="text-[9px] text-gray-400 mt-1">@ {br.start_time.toFixed(1)}s (for {br.duration}s)</p>
+                                                     </div>
+                                                 </div>
+                                             ))}
+                                         </div>
                                      </div>
                                  )}
                               </div>
@@ -1464,7 +1479,7 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                      </>
                   )}
 
-                  {activeClip.type !== 'cut' && (
+                  {activeClip && activeClip.type !== 'cut' && (
                      <div className="space-y-4">
                         <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2", textMuted)}><Clock className="w-3 h-3"/> Timing</h4>
                         <div className="flex gap-2">
@@ -1999,6 +2014,8 @@ export function StudioView({ file, fileUrl, clips: initialClips, initialCaptions
                                     }
                                     formData.append("cameraCuts", JSON.stringify(exportCameraCuts));
                                 }
+
+                                formData.append("projectClips", JSON.stringify(projectClips));
 
                                 // Mock progress while waiting
                                 const int = setInterval(() => {
