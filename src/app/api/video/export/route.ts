@@ -126,13 +126,27 @@ function generateAssFile(captions: any[], videoWidth: number, videoHeight: numbe
         styleProps = '0,0,1,0,0,0'; // No bold, No shadow
         inactiveColor = '&HD3D3D3&'; // LightGray
         activeColor = '&H000000&'; // Black
-    } else if (preset === 'cinematic') {
-        fontName = 'Georgia';
-        baseFontSize = Math.round(fontSize * 0.95);
+    } else if (preset === 'cinematic-bold' || preset === 'cinematic') {
+        fontName = 'Montserrat';
+        baseFontSize = Math.round(fontSize * 1.2);
         colors = '&H00FFFFFF,&H000000FF,&H00000000,&H80000000'; // Pure white text, black outline, shadow
-        styleProps = '0,0,1,1,3,2'; // Not bold, Not italic, BorderStyle=1, Outline=1, Shadow=3, Spacing=2
-        inactiveColor = '&HCCCCCC&'; // Light grey
-        activeColor = '&H37AFD4&'; // Cinematic Gold (BGR)
+        styleProps = '-1,0,1,1,3,2'; // Bold, Not italic, BorderStyle=1, Outline=1, Shadow=3, Spacing=2
+        inactiveColor = '&HFEE8E8&'; // Light blue hint (BGR)
+        activeColor = '&HFFFFFF&'; 
+    } else if (preset === 'cinematic-elegant') {
+        fontName = 'Playfair Display';
+        baseFontSize = Math.round(fontSize * 1.1);
+        colors = '&H00FFFFFF,&H000000FF,&H00000000,&H90000000'; 
+        styleProps = '0,0,1,0,3,4'; // Outline=0, Shadow=3, Spacing=4
+        inactiveColor = '&HCCCCCC&';
+        activeColor = '&HFFFFFF&';
+    } else if (preset === 'cinematic-condensed') {
+        fontName = 'Bebas Neue';
+        baseFontSize = Math.round(fontSize * 1.4);
+        colors = '&H00008CFF,&H000000FF,&H00000000,&H90000000'; // DarkOrange BGR
+        styleProps = '0,0,1,0,4,1'; // Shadow=4, Spacing=1
+        inactiveColor = '&H0045FF&'; // OrangeRed BGR
+        activeColor = '&H008CFF&'; // DarkOrange BGR
     } else if (preset === 'skillizee') {
         fontName = 'Inter';
         baseFontSize = fontSize;
@@ -180,13 +194,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
 
     captions.forEach(chunk => {
-        const words = chunk.words || [];
+        let words = chunk.words || [];
         
+        if (words.length === 0 && chunk.text) {
+            const textWords = chunk.text.trim().split(/\s+/);
+            const chunkDuration = chunk.end - chunk.start;
+            const timePerWord = chunkDuration / Math.max(1, textWords.length);
+            words = textWords.map((w: string, idx: number) => ({
+                word: w,
+                start: chunk.start + (idx * timePerWord),
+                end: chunk.start + ((idx + 1) * timePerWord)
+            }));
+        }
+
         if (words.length === 0) {
             const start = formatAssTime(chunk.start);
             const end = formatAssTime(chunk.end);
-            ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${chunk.text}
-`;
+            ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${chunk.text}\n`;
             return;
         }
 

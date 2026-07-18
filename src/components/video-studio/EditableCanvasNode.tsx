@@ -117,9 +117,9 @@ export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChan
       ref={nodeRef}
       className="absolute cursor-move"
       style={{
-        left: '50%',
+        left: !isResizable ? 0 : '50%',
         top: '50%',
-        width: 0,
+        width: !isResizable ? '100%' : 0,
         height: 0,
         zIndex: zIndex !== undefined ? zIndex : (isSelected ? 60 : 50),
       }}
@@ -138,7 +138,7 @@ export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChan
       }}
     >
       <div 
-         className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center ${!isResizable ? 'w-[90cqw] max-w-[90cqw]' : ''} ${isSelected ? 'ring-1 ring-[#6366F1] shadow-[0_0_15px_rgba(99,102,241,0.3)]' : ''}`}
+         className={`absolute top-1/2 -translate-y-1/2 flex items-center justify-center ${!isResizable ? 'left-0 w-full px-[5%]' : 'left-1/2 -translate-x-1/2'} ${isSelected ? 'ring-1 ring-[#6366F1] shadow-[0_0_15px_rgba(99,102,241,0.3)]' : ''}`}
       >
         {children}
         
