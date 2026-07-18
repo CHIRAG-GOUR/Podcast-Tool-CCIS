@@ -14,6 +14,10 @@ const execPromise = util.promisify(exec);
 export const maxDuration = 300; // Allow long running tasks for video processing on Vercel
 
 export async function POST(req: Request) {
+  let tempFilePath = "";
+  let compressedPath = "";
+  let uploadedAnalyzeFile = "";
+  let uploadedCaptionsFile = "";
   try {
     // --- SECURITY GUARD ---
     const authHeader = req.headers.get('authorization');
@@ -53,8 +57,8 @@ export async function POST(req: Request) {
     // Save file locally to temp dir
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const tempFilePath = join(tmpdir(), `${uuidv4()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
-    const compressedPath = join(tmpdir(), `${uuidv4()}-compressed.m4a`);
+    tempFilePath = join(tmpdir(), `${uuidv4()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
+    compressedPath = join(tmpdir(), `${uuidv4()}-compressed.m4a`);
     
     await writeFile(tempFilePath, buffer);
     console.log(`Saved temp video to ${tempFilePath}`);
@@ -91,12 +95,8 @@ export async function POST(req: Request) {
     ]);
     
     console.log(`Uploaded files to Gemini: ${analyzeUpload.file.name}, ${captionsUpload.file.name}`);
-
-    // Clean up temp file
-    await unlink(tempFilePath).catch(() => {});
-    if (finalUploadPath === compressedPath) {
-        await unlink(compressedPath).catch(() => {});
-    }
+    uploadedAnalyzeFile = analyzeUpload.file.name;
+    uploadedCaptionsFile = captionsUpload.file.name;
 
     // Wait for the video to be processed by Gemini
     const waitForFile = async (manager: GoogleAIFileManager, name: string) => {
@@ -221,10 +221,6 @@ Return ONLY valid JSON without markdown formatting.`;
     console.log("Raw Gemini Response (Clips):", rawResponse.substring(0, 200) + '...');
     console.log("Raw Gemini Response (Captions):", rawCaptionsResponse.substring(0, 200) + '...');
     
-    // Clean up from Gemini
-    await analyzeFileManager.deleteFile(analyzeUpload.file.name).catch(console.error);
-    await captionsFileManager.deleteFile(captionsUpload.file.name).catch(console.error);
-
     let parsedClips = [];
     try {
       const cleaned = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -266,5 +262,25 @@ Return ONLY valid JSON without markdown formatting.`;
   } catch (error: any) {
     console.error('Video Analysis API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  } finally {
+    if (tempFilePath) await unlink(tempFilePath).catch(() => {});
+    if (compressedPath) await unlink(compressedPath).catch(() => {});
+    
+    const analyzeApiKey = process.env.GEMINI_API_KEY_ANALYZE || process.env.GEMINI_API_KEY;
+    const captionsApiKey = process.env.GEMINI_API_KEY_CAPTIONS || process.env.GEMINI_API_KEY;
+    
+    if (uploadedAnalyzeFile && analyzeApiKey) {
+      try {
+        const fm = new GoogleAIFileManager(analyzeApiKey);
+        await fm.deleteFile(uploadedAnalyzeFile).catch(() => {});
+      } catch(e) {}
+    }
+    
+    if (uploadedCaptionsFile && captionsApiKey) {
+      try {
+        const fm = new GoogleAIFileManager(captionsApiKey);
+        await fm.deleteFile(uploadedCaptionsFile).catch(() => {});
+      } catch(e) {}
+    }
   }
 }

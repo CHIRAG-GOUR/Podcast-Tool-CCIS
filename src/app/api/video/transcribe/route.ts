@@ -14,6 +14,9 @@ const execPromise = util.promisify(exec);
 export const maxDuration = 300; 
 
 export async function POST(req: Request) {
+  let tempVideoPath = "";
+  let finalUploadPath = "";
+  let uploadedFileName = "";
   try {
     // --- SECURITY GUARD ---
     const authHeader = req.headers.get('authorization');
@@ -53,7 +56,7 @@ export async function POST(req: Request) {
     // Save file locally to temp dir
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const tempVideoPath = join(tmpdir(), `${uuidv4()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
+    tempVideoPath = join(tmpdir(), `${uuidv4()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
     const tempAudioPath = tempVideoPath + '.mp3';
     
     await writeFile(tempVideoPath, buffer);
@@ -61,7 +64,7 @@ export async function POST(req: Request) {
 
     // Use FFMPEG to extract just the required audio slice
     let uploadMime = file.type;
-    let finalUploadPath = tempVideoPath;
+    finalUploadPath = tempVideoPath;
     
     if (startTime && endTime) {
       console.log(`Extracting audio slice from ${startTime}s to ${endTime}s...`);
@@ -90,12 +93,7 @@ export async function POST(req: Request) {
     });
     
     console.log(`Uploaded file to Gemini for transcription: ${uploadResult.file.name}`);
-
-    // Clean up temp files
-    await unlink(tempVideoPath).catch(() => {});
-    if (finalUploadPath !== tempVideoPath) {
-      await unlink(finalUploadPath).catch(() => {});
-    }
+    uploadedFileName = uploadResult.file.name;
 
     if (uploadMime.startsWith('video/')) {
       let currentFile = await fileManager.getFile(uploadResult.file.name);
@@ -138,8 +136,6 @@ Return ONLY valid JSON without markdown formatting.`;
     ]);
 
     const rawResponse = result.response.text();
-    
-    await fileManager.deleteFile(uploadResult.file.name).catch(console.error);
 
     let parsedCaptions = [];
     try {
@@ -163,6 +159,14 @@ Return ONLY valid JSON without markdown formatting.`;
     const DUMMY_CACHE_BUSTER_VARIABLE_FOR_TURBOPACK = true;
     console.error('Video Transcription API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  } finally {
+    if (tempVideoPath) await unlink(tempVideoPath).catch(() => {});
+    if (finalUploadPath && finalUploadPath !== tempVideoPath) await unlink(finalUploadPath).catch(() => {});
+    if (uploadedFileName && process.env.GEMINI_API_KEY) {
+      try {
+        const fm = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+        await fm.deleteFile(uploadedFileName).catch(() => {});
+      } catch(e) {}
+    }
   }
 }
- 

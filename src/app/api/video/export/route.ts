@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { storage, db } from '@/lib/firebase-admin';
 import { writeFile, readFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -278,6 +279,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 }
 
 export async function POST(req: Request) {
+  let tempVideoPath = '';
+  let tempFilterPath = '';
+  let tempOutputPath = '';
+  const downloadedImages: string[] = [];
   try {
     const formData = await req.formData();
     const file = formData.get('video') as File;
@@ -363,9 +368,9 @@ export async function POST(req: Request) {
     if (exportFormat === 'png_seq') ext = 'mp4'; // Fallback for unsupported complex sequence output
     
     const uniqueId = uuidv4();
-    const tempVideoPath = join(tmpdir(), `${uniqueId}-input.mp4`);
-    const tempFilterPath = join(tmpdir(), `${uniqueId}-filter.txt`);
-    const tempOutputPath = join(tmpdir(), `${uniqueId}-output.${ext}`);
+    tempVideoPath = join(tmpdir(), `${uniqueId}-input.mp4`);
+    tempFilterPath = join(tmpdir(), `${uniqueId}-filter.txt`);
+    tempOutputPath = join(tmpdir(), `${uniqueId}-output.${ext}`);
     
     await writeFile(tempVideoPath, buffer);
     console.log(`Saved temp video to ${tempVideoPath} for export with ratio ${targetWidth}x${targetHeight}`);
@@ -505,18 +510,19 @@ export async function POST(req: Request) {
     }
 
     // Download B-roll overlays
-    const overlays = projectClips?.filter((c: any) => c.trackId === 'v4' && c.type === 'image') || [];
+    const allOverlays = projectClips?.filter((c: any) => c.trackId === 'v4' && c.type === 'image') || [];
     let brollInputs = '';
-    const downloadedImages = [];
-    if (overlays.length > 0) {
-        for (let i = 0; i < overlays.length; i++) {
-            const overlay = overlays[i];
-            const imgPath = join(tmpdir(), `${uniqueId}-broll-${i}.jpg`);
+    const overlays = [];
+    if (allOverlays.length > 0) {
+        for (let i = 0; i < allOverlays.length; i++) {
+            const overlay = allOverlays[i];
+            const imgPath = join(tmpdir(), `${uniqueId}-broll-${downloadedImages.length}.jpg`);
             try {
                 const imgResponse = await fetch(overlay.mediaUrl);
                 const imgBuffer = await imgResponse.arrayBuffer();
                 await writeFile(imgPath, Buffer.from(imgBuffer));
                 downloadedImages.push(imgPath);
+                overlays.push(overlay);
                 brollInputs += ` -i "${imgPath.replace(/\\/g, '/').replace(/:/g, '\\:')}"`;
             } catch (err) {
                 console.error("Failed to download B-roll", err);
@@ -591,11 +597,6 @@ export async function POST(req: Request) {
         // Read the output file
         const outputBuffer = await readFile(tempOutputPath);
         
-        // Cleanup
-        await unlink(tempVideoPath).catch(()=>{});
-        await unlink(tempFilterPath).catch(()=>{});
-        await unlink(tempOutputPath).catch(()=>{});
-        
         let contentType = 'video/mp4';
         if (ext === 'mov') contentType = 'video/quicktime';
         if (ext === 'webm') contentType = 'video/webm';
@@ -603,6 +604,40 @@ export async function POST(req: Request) {
         if (ext === 'mp3') contentType = 'audio/mpeg';
         if (ext === 'wav') contentType = 'audio/wav';
         if (ext === 'aac') contentType = 'audio/aac';
+        
+        // Save to Firebase Storage
+        try {
+            console.log("Uploading to Firebase Storage...");
+            const bucket = storage.bucket();
+            const firebaseFileName = `exports/Skillizee_Export_${uniqueId.substring(0,8)}.${ext}`;
+            const fileUpload = bucket.file(firebaseFileName);
+            
+            await fileUpload.save(outputBuffer, {
+                metadata: {
+                    contentType: contentType
+                }
+            });
+            
+            try {
+                await fileUpload.makePublic();
+                const publicUrl = `https://storage.googleapis.com/${bucket.name}/${firebaseFileName}`;
+                console.log(`Successfully uploaded to Firebase: ${publicUrl}`);
+                
+                // Optionally save a record to Firestore
+                await db.collection('exported_videos').add({
+                    fileName: firebaseFileName,
+                    publicUrl: publicUrl,
+                    createdAt: new Date(),
+                    format: ext,
+                    contentType: contentType
+                });
+            } catch (makePublicErr) {
+                console.log("Uploaded, but couldn't make public (or saving metadata failed):", makePublicErr);
+            }
+        } catch (fbErr) {
+            console.error("Failed to upload to Firebase:", fbErr);
+            // We don't throw here to still allow the user to download it
+        }
         
         return new NextResponse(outputBuffer, {
             headers: {
@@ -613,11 +648,6 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error("Export error:", error);
-        
-        // Clean up on failure
-        await unlink(tempVideoPath).catch(()=>{});
-        await unlink(tempFilterPath).catch(()=>{});
-        await unlink(tempOutputPath).catch(()=>{});
         
         let errorMessage = error.stderr || error.message;
         if (typeof errorMessage === 'string' && errorMessage.includes('\n')) {
@@ -630,5 +660,12 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('Video Export API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  } finally {
+    if (tempVideoPath) await unlink(tempVideoPath).catch(() => {});
+    if (tempFilterPath) await unlink(tempFilterPath).catch(() => {});
+    if (tempOutputPath) await unlink(tempOutputPath).catch(() => {});
+    for (const imgPath of downloadedImages) {
+        await unlink(imgPath).catch(() => {});
+    }
   }
 }
