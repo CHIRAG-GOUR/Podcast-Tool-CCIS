@@ -15,6 +15,7 @@ export default function VideoStudio() {
   const [videoContext, setVideoContext] = useState("")
   const [clips, setClips] = useState<any[]>([])
   const [captions, setCaptions] = useState<any[]>([])
+  const [fileKey, setFileKey] = useState<string | null>(null)
 
   const handleUploadComplete = (uploadedFile: File, context: string) => {
     setFile(uploadedFile)
@@ -29,6 +30,7 @@ export default function VideoStudio() {
     setClips(data.clips || [])
     setCaptions(data.captions || [])
     setCuts(data.cuts || [])
+    setFileKey(data.fileKey || null)
     setView('studio')
   }
 
@@ -66,7 +68,7 @@ export default function VideoStudio() {
             animate={{ opacity: 1 }}
             className="h-full w-full"
           >
-            <StudioView file={file} fileUrl={fileUrl} clips={clips} initialCaptions={captions} initialCuts={cuts} />
+            <StudioView file={file} fileKey={fileKey} fileUrl={fileUrl} clips={clips} initialCaptions={captions} initialCuts={cuts} />
           </motion.div>
         )}
       </AnimatePresence>

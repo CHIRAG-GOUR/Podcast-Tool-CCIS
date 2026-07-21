@@ -36,8 +36,36 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
       try {
         if (!file) throw new Error("No file selected");
         
+        // 1. Get signed URL
+        const urlRes = await fetch("/api/video/upload-url", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}`
+          },
+          body: JSON.stringify({ filename: file.name, contentType: file.type })
+        });
+        
+        if (!urlRes.ok) {
+          throw new Error("Failed to initialize upload. Please try again.");
+        }
+        
+        const { url: signedUrl, key: fileKey } = await urlRes.json();
+        
+        // 2. Upload to Cloud Storage directly
+        const uploadRes = await fetch(signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file
+        });
+        
+        if (!uploadRes.ok) {
+          throw new Error("Failed to upload video to cloud. The file might be too large.");
+        }
+        
+        // 3. Trigger Analysis via the fileKey
         const formData = new FormData();
-        formData.append("video", file);
+        formData.append("fileKey", fileKey);
         if (context) formData.append("context", context);
 
         const res = await fetch("/api/video/analyze", {

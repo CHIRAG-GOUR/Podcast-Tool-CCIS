@@ -300,8 +300,10 @@ export async function POST(req: Request) {
     const viralSoundDesign = formData.get('viral_sound_design') === 'true';
     const viralBouncyText = formData.get('viral_bouncy_text') === 'true';
     
-    if (!file) {
-      return NextResponse.json({ error: 'No video file provided' }, { status: 400 });
+    const fileKey = formData.get('fileKey') as string | null;
+    
+    if (!file && !fileKey) {
+      return NextResponse.json({ error: 'No video file or fileKey provided' }, { status: 400 });
     }
 
     let captions = [];
@@ -360,20 +362,30 @@ export async function POST(req: Request) {
     targetWidth = targetWidth + (targetWidth % 2);
     targetHeight = targetHeight + (targetHeight % 2);
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    
     const isAudioOnly = ['mp3', 'wav', 'aac'].includes(exportFormat);
     let ext = exportFormat;
     if (exportFormat === 'png_seq') ext = 'mp4'; // Fallback for unsupported complex sequence output
     
     const uniqueId = uuidv4();
-    tempVideoPath = join(tmpdir(), `${uniqueId}-input.mp4`);
+    
+    if (fileKey) {
+        console.log(`Generating Read Signed URL for FFMPEG input from Firebase Storage: ${fileKey}`);
+        const [url] = await storage.bucket().file(fileKey).getSignedUrl({
+            version: 'v4',
+            action: 'read',
+            expires: Date.now() + 2 * 60 * 60 * 1000, // 2 hours
+        });
+        tempVideoPath = url;
+    } else {
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        tempVideoPath = join(tmpdir(), `${uniqueId}-input.mp4`);
+        await writeFile(tempVideoPath, buffer);
+        console.log(`Saved temp video to ${tempVideoPath} for export with ratio ${targetWidth}x${targetHeight}`);
+    }
+
     tempFilterPath = join(tmpdir(), `${uniqueId}-filter.txt`);
     tempOutputPath = join(tmpdir(), `${uniqueId}-output.${ext}`);
-    
-    await writeFile(tempVideoPath, buffer);
-    console.log(`Saved temp video to ${tempVideoPath} for export with ratio ${targetWidth}x${targetHeight}`);
 
     const startNum = parseFloat(startTime) || 0;
     const endNum = parseFloat(endTime) || 0;
@@ -550,7 +562,7 @@ export async function POST(req: Request) {
                 const overlay = overlays[i];
                 const inputIdx = i + 1; // 1-indexed for broll inputs
                 const nextV = `v${i}`;
-                const start = overlay.start - startNum;
+                const start = overlay.start; // Frontend already shifts timeline items
                 const end = start + (overlay.duration || 3);
                 const brollFiltered = `b${i}`;
                 
@@ -661,7 +673,9 @@ export async function POST(req: Request) {
     console.error('Video Export API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   } finally {
-    if (tempVideoPath) await unlink(tempVideoPath).catch(() => {});
+    if (tempVideoPath && !tempVideoPath.startsWith('http')) {
+        await unlink(tempVideoPath).catch(() => {});
+    }
     if (tempFilterPath) await unlink(tempFilterPath).catch(() => {});
     if (tempOutputPath) await unlink(tempOutputPath).catch(() => {});
     for (const imgPath of downloadedImages) {
