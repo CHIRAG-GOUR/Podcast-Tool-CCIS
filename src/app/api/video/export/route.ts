@@ -414,7 +414,12 @@ export async function POST(req: Request) {
     let vfStr = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}:${cropXExpr}:0`;
 
     if (shiftedCaptions.length > 0 && !isAudioOnly) {
-        const assContent = generateAssFile(shiftedCaptions, targetWidth, targetHeight, (style as any).preset, (style as any).fontSize, (style as any).backgroundBox, viralBouncyText);
+        const isPortrait = aspectRatio === '9:16' || aspectRatio === '4:5';
+        const refWidth = isPortrait ? 1080 : 1920;
+        const scaleFactor = targetWidth / refWidth;
+        const scaledFontSize = Math.round(((style as any).fontSize || 48) * scaleFactor);
+
+        const assContent = generateAssFile(shiftedCaptions, targetWidth, targetHeight, (style as any).preset, scaledFontSize, (style as any).backgroundBox, viralBouncyText);
         await writeFile(tempFilterPath, assContent, 'utf-8');
         const fontsDir = join(process.cwd(), 'public', 'fonts').replace(/\\/g, '/').replace(/:/g, '\\:');
         const safeAssPath = tempFilterPath.replace(/\\/g, '/').replace(/:/g, '\\:');

@@ -1999,18 +1999,6 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
 
                                     if (textClip) {
                                        let exportTextClip = JSON.parse(JSON.stringify(textClip));
-                                       if (start_time > 0 && exportTextClip.chunks) {
-                                          exportTextClip.chunks = exportTextClip.chunks.map((chunk: any) => ({
-                                             ...chunk,
-                                             start: Math.max(0, chunk.start - start_time),
-                                             end: Math.max(0, chunk.end - start_time),
-                                             words: (chunk.words || []).map((w: any) => ({
-                                                ...w,
-                                                start: Math.max(0, w.start - start_time),
-                                                end: Math.max(0, w.end - start_time)
-                                             })).filter((w: any) => w.end > 0)
-                                          })).filter((c: any) => c.end > 0);
-                                       }
                                        formData.append("captions", JSON.stringify(exportTextClip));
                                        if (previewContainerRef.current) {
                                           formData.append("canvas_width", previewContainerRef.current.clientWidth.toString());
@@ -2020,12 +2008,6 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
 
                                     let exportCameraCuts = projectClips.filter(c => c.type === 'cut');
                                     if (exportCameraCuts.length > 0) {
-                                       if (start_time > 0) {
-                                          exportCameraCuts = exportCameraCuts.map((c: any) => ({
-                                             ...c,
-                                             start: Math.max(0, c.start - start_time)
-                                          })).filter((c: any) => (c.start + c.duration) > 0);
-                                       }
                                        formData.append("cameraCuts", JSON.stringify(exportCameraCuts));
                                     }
 
