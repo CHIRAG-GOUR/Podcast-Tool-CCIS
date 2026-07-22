@@ -38,7 +38,8 @@ function formatAssTime(seconds: number) {
 }
 
 function generateAssFile(captions: any[], videoWidth: number, videoHeight: number, preset: string = 'hormozi', userFontSize: number = 48, backgroundBox: string = 'none', bouncyText: boolean = false) {
-    const fontSize = userFontSize || 48;
+    const scaleFactor = videoWidth / 380;
+    const fontSize = Math.round((userFontSize || 48) * scaleFactor);
     
     let fontName = 'Inter';
     let baseFontSize = fontSize;
@@ -384,7 +385,7 @@ export async function POST(req: Request) {
         console.log(`Saved temp video to ${tempVideoPath} for export with ratio ${targetWidth}x${targetHeight}`);
     }
 
-    tempFilterPath = join(tmpdir(), `${uniqueId}-filter.txt`);
+    tempFilterPath = join(tmpdir(), `${uniqueId}-filter.ass`);
     tempOutputPath = join(tmpdir(), `${uniqueId}-output.${ext}`);
 
     const startNum = parseFloat(startTime) || 0;
