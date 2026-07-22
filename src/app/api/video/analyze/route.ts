@@ -162,7 +162,6 @@ Return ONLY a valid JSON array. Each object in the array must have:
 - "instagram_caption": A fully written, highly engaging caption suitable for an Instagram Reel or TikTok post, including spacing, context, and a call-to-action.
 - "hashtags": A string containing 5-8 highly relatable, high-reach hashtags separated by spaces (e.g. "#viral #podcast #mindset").
 - "broll": An array of exactly 2 objects containing "start_time", "duration", and "keyword". These should be the two most visually descriptive moments in the clip where B-roll would increase retention. The "keyword" MUST be a highly descriptive prompt for an AI image generator (e.g., "cinematic dark shot of hacker typing on laptop, neon, 4k").
-- "captions": A JSON array of phrase objects transcribing the speech IN THIS CLIP. Each object must have "text" (3-5 words), "start" (float, seconds relative to the clip's start time, starting at 0.0), and "end" (float, seconds).
 
 Do NOT include markdown formatting or backticks. Just pure JSON.`;
 
@@ -174,6 +173,53 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
         }
       },
       { text: prompt }
+    ]);
+
+
+    
+    let captionsFileManager = analyzeFileManager;
+    let captionsGenAI = analyzeGenAI;
+    const sameKey = (analyzeApiKey === captionsApiKey);
+    if (!sameKey) {
+      captionsFileManager = new GoogleAIFileManager(captionsApiKey);
+      captionsGenAI = new GoogleGenerativeAI(captionsApiKey);
+    }
+
+    let captionsUpload = analyzeUpload;
+    let uploadedCaptionsFile = "";
+    if (!sameKey) {
+      console.log("Uploading file to Gemini (Captions)...");
+      captionsUpload = await captionsFileManager.uploadFile(finalUploadPath, {
+        mimeType: finalMimeType || 'video/mp4',
+        displayName: (file ? file.name : fileKey || 'video') + "_captions",
+      });
+      uploadedCaptionsFile = captionsUpload.file.name;
+      console.log(`Uploaded to Gemini (Captions): ${captionsUpload.file.name}`);
+      await waitForFile(captionsFileManager, captionsUpload.file.name);
+    }
+
+    const captionsModel = captionsGenAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const captionsPrompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this media.
+CRITICAL INSTRUCTION: Break the transcription into short phrases (3-5 words) suitable for fast-paced Captions.ai style videos.
+Return ONLY a valid JSON array. Each object in the array must have:
+- "text": The text of the short phrase
+- "start": The start time in seconds (float, e.g., 1.5)
+- "end": The end time in seconds (float, e.g., 2.3)
+- "words": An array of objects for each word in the phrase, containing "word", "start", and "end".
+Do NOT include markdown formatting or backticks. Just pure JSON.`;
+
+    const captionsPromise = captionsModel.generateContent([
+      {
+        fileData: {
+          mimeType: captionsUpload.file.mimeType,
+          fileUri: captionsUpload.file.uri
+        }
+      },
+      { text: captionsPrompt }
     ]);
 
     // Run auto_framer.py to get facial recognition camera cuts
@@ -190,11 +236,13 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
         return [];
       });
 
-    const [result, parsedCuts] = await Promise.all([resultPromise, framerPromise]);
+    const [result, captionsResult, parsedCuts] = await Promise.all([resultPromise, captionsPromise, framerPromise]);
 
     const rawResponse = result.response.text();
+    const rawCaptionsResponse = captionsResult.response.text();
 
     console.log("Raw Gemini Response (Clips):", rawResponse.substring(0, 200) + '...');
+    console.log("Raw Gemini Response (Captions):", rawCaptionsResponse.substring(0, 200) + '...');
 
     let parsedClips = [];
     try {
@@ -210,6 +258,46 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
       console.error("Failed to parse Gemini output (clips):", e);
       return NextResponse.json({ error: "Failed to parse AI output." }, { status: 500 });
     }
+
+    let parsedCaptions: any[] = [];
+    try {
+      const cleanedCaptions = rawCaptionsResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+      let substringToParse = cleanedCaptions;
+      const startCaptions = cleanedCaptions.indexOf('[');
+      const endCaptions = cleanedCaptions.lastIndexOf(']');
+      if (startCaptions !== -1 && endCaptions !== -1) {
+        substringToParse = cleanedCaptions.substring(startCaptions, endCaptions + 1);
+        parsedCaptions = JSON.parse(substringToParse);
+      } else {
+        parsedCaptions = JSON.parse(cleanedCaptions);
+      }
+    } catch (e) {
+      console.error("Failed to parse Gemini output (captions):", e);
+    }
+
+    // Slice captions per clip
+    parsedClips.forEach((clip: any) => {
+      const clipStart = parseFloat(clip.start_time);
+      const clipEnd = parseFloat(clip.end_time);
+      clip.captions = [];
+      
+      parsedCaptions.forEach((phrase: any) => {
+        // If phrase overlaps with clip
+        if (phrase.start >= clipStart - 1.0 && phrase.end <= clipEnd + 1.0) {
+           let p = JSON.parse(JSON.stringify(phrase));
+           p.start = Math.max(0, p.start - clipStart);
+           p.end = Math.max(0, p.end - clipStart);
+           if (p.words) {
+               p.words = p.words.map((w: any) => ({
+                   ...w,
+                   start: Math.max(0, w.start - clipStart),
+                   end: Math.max(0, w.end - clipStart)
+               }));
+           }
+           clip.captions.push(p);
+        }
+      });
+    });
 
     return NextResponse.json({ clips: parsedClips, captions: [], cuts: parsedCuts, fileKey: fileKey || "" });
   } catch (error: any) {

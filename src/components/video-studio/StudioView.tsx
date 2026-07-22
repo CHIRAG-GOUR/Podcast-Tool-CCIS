@@ -1999,6 +1999,22 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
 
                                     if (textClip) {
                                        let exportTextClip = JSON.parse(JSON.stringify(textClip));
+                                       
+                                       // Shift chunk times relative to the FFMPEG export window
+                                       // FFMPEG starts at 0, corresponding to 'start_time' on the timeline.
+                                       // chunk absolute time = textClip.start + chunk.start
+                                       // FFMPEG relative time = absolute time - start_time
+                                       exportTextClip.data.chunks = exportTextClip.data.chunks.map((chunk: any) => ({
+                                          ...chunk,
+                                          start: textClip.start + chunk.start - start_time,
+                                          end: textClip.start + chunk.end - start_time,
+                                          words: chunk.words?.map((w: any) => ({
+                                             ...w,
+                                             start: textClip.start + w.start - start_time,
+                                             end: textClip.start + w.end - start_time
+                                          }))
+                                       })).filter((chunk: any) => chunk.start >= 0 && chunk.end > 0);
+                                       
                                        formData.append("captions", JSON.stringify(exportTextClip));
                                        if (previewContainerRef.current) {
                                           formData.append("canvas_width", previewContainerRef.current.clientWidth.toString());
