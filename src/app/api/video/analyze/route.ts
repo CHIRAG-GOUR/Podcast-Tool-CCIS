@@ -67,7 +67,15 @@ export async function POST(req: Request) {
         action: 'read',
         expires: Date.now() + 60 * 60 * 1000, // 1 hour
       });
-      ffmpegInputPath = url;
+      
+      console.log("Downloading video from Firebase to local temp file to speed up FFMPEG...");
+      const fetchRes = await fetch(url);
+      if (!fetchRes.ok) throw new Error("Failed to fetch video from Firebase");
+      const buffer = Buffer.from(await fetchRes.arrayBuffer());
+      await writeFile(tempFilePath, buffer);
+      console.log("Download complete.");
+      
+      ffmpegInputPath = tempFilePath;
     } else if (file) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
@@ -91,15 +99,6 @@ export async function POST(req: Request) {
     // Upload to Gemini
     const analyzeFileManager = new GoogleAIFileManager(analyzeApiKey);
     const analyzeGenAI = new GoogleGenerativeAI(analyzeApiKey);
-    
-    let captionsFileManager = analyzeFileManager;
-    let captionsGenAI = analyzeGenAI;
-    const sameKey = (analyzeApiKey === captionsApiKey);
-
-    if (!sameKey) {
-      captionsFileManager = new GoogleAIFileManager(captionsApiKey);
-      captionsGenAI = new GoogleGenerativeAI(captionsApiKey);
-    }
 
     console.log("Uploading file to Gemini...");
     const analyzeUpload = await analyzeFileManager.uploadFile(finalUploadPath, {
@@ -107,15 +106,6 @@ export async function POST(req: Request) {
       displayName: (file ? file.name : fileKey || 'video') + "_analyze",
     });
     uploadedAnalyzeFile = analyzeUpload.file.name;
-
-    let captionsUpload = analyzeUpload;
-    if (!sameKey) {
-      captionsUpload = await captionsFileManager.uploadFile(finalUploadPath, {
-        mimeType: finalMimeType || 'video/mp4',
-        displayName: (file ? file.name : fileKey || 'video') + "_captions",
-      });
-      uploadedCaptionsFile = captionsUpload.file.name;
-    }
 
     console.log(`Uploaded to Gemini: ${analyzeUpload.file.name}`);
 
@@ -131,11 +121,7 @@ export async function POST(req: Request) {
     };
 
     console.log("Waiting for video processing...");
-    const waitPromises = [waitForFile(analyzeFileManager, analyzeUpload.file.name)];
-    if (!sameKey) {
-      waitPromises.push(waitForFile(captionsFileManager, captionsUpload.file.name));
-    }
-    await Promise.all(waitPromises);
+    await waitForFile(analyzeFileManager, analyzeUpload.file.name);
 
     // Analyze video
     const analyzeModel = analyzeGenAI.getGenerativeModel({
@@ -187,6 +173,7 @@ Return ONLY a valid JSON array. Each object in the array must have:
 - "instagram_caption": A fully written, highly engaging caption suitable for an Instagram Reel or TikTok post, including spacing, context, and a call-to-action.
 - "hashtags": A string containing 5-8 highly relatable, high-reach hashtags separated by spaces (e.g. "#viral #podcast #mindset").
 - "broll": An array of exactly 2 objects containing "start_time", "duration", and "keyword". These should be the two most visually descriptive moments in the clip where B-roll would increase retention. The "keyword" MUST be a highly descriptive prompt for an AI image generator (e.g., "cinematic dark shot of hacker typing on laptop, neon, 4k").
+- "captions": A JSON array of phrase objects transcribing the speech IN THIS CLIP. Each object must have "text" (3-5 words), "start" (float, seconds relative to the clip's start time, starting at 0.0), and "end" (float, seconds).
 
 Do NOT include markdown formatting or backticks. Just pure JSON.`;
 
@@ -198,27 +185,6 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
         }
       },
       { text: prompt }
-    ]);
-
-    const captionsPrompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this media.
-CRITICAL INSTRUCTION: Break the transcription into short phrases (3-5 words) suitable for fast-paced Captions.ai style videos.
-DO NOT include any emojis or non-text symbols in the transcription. Return ONLY the spoken words.
-
-Return a JSON array of phrase objects. Each object must have:
-- "text": The full phrase spoken.
-- "start": Phrase start time (float, seconds).
-- "end": Phrase end time (float, seconds).
-
-Return ONLY valid JSON without markdown formatting.`;
-
-    const captionsPromise = captionsModel.generateContent([
-      {
-        fileData: {
-          mimeType: captionsUpload.file.mimeType,
-          fileUri: captionsUpload.file.uri
-        }
-      },
-      { text: captionsPrompt }
     ]);
 
     // Run auto_framer.py to get facial recognition camera cuts
@@ -235,13 +201,11 @@ Return ONLY valid JSON without markdown formatting.`;
         return [];
       });
 
-    const [result, captionsResult, parsedCuts] = await Promise.all([resultPromise, captionsPromise, framerPromise]);
+    const [result, parsedCuts] = await Promise.all([resultPromise, framerPromise]);
 
     const rawResponse = result.response.text();
-    const rawCaptionsResponse = captionsResult.response.text();
 
     console.log("Raw Gemini Response (Clips):", rawResponse.substring(0, 200) + '...');
-    console.log("Raw Gemini Response (Captions):", rawCaptionsResponse.substring(0, 200) + '...');
 
     let parsedClips = [];
     try {
@@ -258,29 +222,7 @@ Return ONLY valid JSON without markdown formatting.`;
       return NextResponse.json({ error: "Failed to parse AI output." }, { status: 500 });
     }
 
-    let parsedCaptions = [];
-    try {
-      const cleanedCaptions = rawCaptionsResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      let substringToParse = cleanedCaptions;
-      const startCaptions = cleanedCaptions.indexOf('[');
-      const endCaptions = cleanedCaptions.lastIndexOf(']');
-      if (startCaptions !== -1 && endCaptions !== -1) {
-        substringToParse = cleanedCaptions.substring(startCaptions, endCaptions + 1);
-      }
-      try {
-        parsedCaptions = JSON.parse(substringToParse);
-      } catch (parseError) {
-        // If truncated, attempt to fix
-        const lastBrace = substringToParse.lastIndexOf('}');
-        if (lastBrace !== -1) {
-          parsedCaptions = JSON.parse(substringToParse.substring(0, lastBrace + 1) + ']');
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse Gemini output (captions):", e);
-    }
-
-    return NextResponse.json({ clips: parsedClips, captions: parsedCaptions, cuts: parsedCuts, fileKey: fileKey || "" });
+    return NextResponse.json({ clips: parsedClips, captions: [], cuts: parsedCuts, fileKey: fileKey || "" });
   } catch (error: any) {
     console.error('Video Analysis API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
