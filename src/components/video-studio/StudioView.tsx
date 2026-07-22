@@ -630,7 +630,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                        return;
                                     }
 
-                                    const sourceClip = aiClips.find(c => c.start_time === activeClip.mediaStart);
+                                    const sourceClip = aiClips.find((c: any) => c.start_time === activeClip.mediaStart);
                                     if (!sourceClip || !sourceClip.captions || sourceClip.captions.length === 0) {
                                        alert("No captions were generated for this clip.");
                                        return;
