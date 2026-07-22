@@ -44,7 +44,7 @@ def analyze_video(video_path, output_json):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    frame_skip = max(1, int(fps / 5)) # Analyze ~5 frames per second
+    frame_skip = max(1, int(fps / 2)) # Analyze ~2 frames per second
     
     # 1. Extract all faces from all frames
     raw_data = []

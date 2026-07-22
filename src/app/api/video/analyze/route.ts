@@ -91,24 +91,33 @@ export async function POST(req: Request) {
     // Upload to Gemini
     const analyzeFileManager = new GoogleAIFileManager(analyzeApiKey);
     const analyzeGenAI = new GoogleGenerativeAI(analyzeApiKey);
+    
+    let captionsFileManager = analyzeFileManager;
+    let captionsGenAI = analyzeGenAI;
+    const sameKey = (analyzeApiKey === captionsApiKey);
 
-    const captionsFileManager = new GoogleAIFileManager(captionsApiKey);
-    const captionsGenAI = new GoogleGenerativeAI(captionsApiKey);
+    if (!sameKey) {
+      captionsFileManager = new GoogleAIFileManager(captionsApiKey);
+      captionsGenAI = new GoogleGenerativeAI(captionsApiKey);
+    }
 
-    const [analyzeUpload, captionsUpload] = await Promise.all([
-      analyzeFileManager.uploadFile(finalUploadPath, {
-        mimeType: finalMimeType || 'video/mp4',
-        displayName: (file ? file.name : fileKey || 'video') + "_analyze",
-      }),
-      captionsFileManager.uploadFile(finalUploadPath, {
+    console.log("Uploading file to Gemini...");
+    const analyzeUpload = await analyzeFileManager.uploadFile(finalUploadPath, {
+      mimeType: finalMimeType || 'video/mp4',
+      displayName: (file ? file.name : fileKey || 'video') + "_analyze",
+    });
+    uploadedAnalyzeFile = analyzeUpload.file.name;
+
+    let captionsUpload = analyzeUpload;
+    if (!sameKey) {
+      captionsUpload = await captionsFileManager.uploadFile(finalUploadPath, {
         mimeType: finalMimeType || 'video/mp4',
         displayName: (file ? file.name : fileKey || 'video') + "_captions",
-      })
-    ]);
+      });
+      uploadedCaptionsFile = captionsUpload.file.name;
+    }
 
-    console.log(`Uploaded files to Gemini: ${analyzeUpload.file.name}, ${captionsUpload.file.name}`);
-    uploadedAnalyzeFile = analyzeUpload.file.name;
-    uploadedCaptionsFile = captionsUpload.file.name;
+    console.log(`Uploaded to Gemini: ${analyzeUpload.file.name}`);
 
     // Wait for the video to be processed by Gemini
     const waitForFile = async (manager: GoogleAIFileManager, name: string) => {
@@ -121,11 +130,12 @@ export async function POST(req: Request) {
       return currentFile;
     };
 
-    console.log("Waiting for video processing on both pipelines...");
-    await Promise.all([
-      waitForFile(analyzeFileManager, analyzeUpload.file.name),
-      waitForFile(captionsFileManager, captionsUpload.file.name)
-    ]);
+    console.log("Waiting for video processing...");
+    const waitPromises = [waitForFile(analyzeFileManager, analyzeUpload.file.name)];
+    if (!sameKey) {
+      waitPromises.push(waitForFile(captionsFileManager, captionsUpload.file.name));
+    }
+    await Promise.all(waitPromises);
 
     // Analyze video
     const analyzeModel = analyzeGenAI.getGenerativeModel({
