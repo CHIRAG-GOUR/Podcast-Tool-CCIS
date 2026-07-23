@@ -63,9 +63,9 @@ const DEFAULT_USERS: User[] = [
 
 // Initialize Firestore
 let firestoreDb: any = null;
-const projectId = process.env.FIREBASE_PROJECT_ID;
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+const projectId = process.env.ADMIN_FIREBASE_PROJECT_ID;
+const clientEmail = process.env.ADMIN_FIREBASE_CLIENT_EMAIL;
+const privateKey = process.env.ADMIN_FIREBASE_PRIVATE_KEY;
 
 if (projectId && clientEmail && privateKey) {
   try {
@@ -152,10 +152,11 @@ async function seedFirestoreIfEmpty() {
   }
 }
 
-// Run seeding asynchronously
-if (firestoreDb) {
-  seedFirestoreIfEmpty();
-}
+// Run seeding asynchronously ONLY if explicitly called, not on module load
+// This prevents Firebase deployment timeouts.
+// if (firestoreDb) {
+//   seedFirestoreIfEmpty();
+// }
 
 export async function getUsers(): Promise<User[]> {
   if (firestoreDb) {
