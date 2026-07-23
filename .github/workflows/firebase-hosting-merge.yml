@@ -18,3 +18,4 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SKILLIZEE_PRODUCTS }}
           channelId: live
           projectId: skillizee-products
+  workflow_dispatch:
