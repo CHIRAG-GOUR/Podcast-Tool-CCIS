@@ -516,24 +516,24 @@ function generateAssFile(captions, videoWidth, videoHeight, preset = 'hormozi', 
         colors = colorParts.join(',');
     }
 
-    let ass = \`[Script Info]
+    let ass = `[Script Info]
 ScriptType: v4.00+
-PlayResX: \${videoWidth}
-PlayResY: \${videoHeight}
+PlayResX: ${videoWidth}
+PlayResY: ${videoHeight}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Spacing, Angle, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Captions,\${fontName},\${baseFontSize},\${colors},\${styleProps},0,2,\${Math.round(videoWidth * 0.08)},\${Math.round(videoWidth * 0.08)},\${Math.round(videoHeight * 0.1)},1
+Style: Captions,${fontName},${baseFontSize},${colors},${styleProps},0,2,${Math.round(videoWidth * 0.08)},${Math.round(videoWidth * 0.08)},${Math.round(videoHeight * 0.1)},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-\`;
+`;
 
     captions.forEach(chunk => {
         let words = chunk.words || [];
         
         if (words.length === 0 && chunk.text) {
-            const textWords = chunk.text.trim().split(/\\s+/);
+            const textWords = chunk.text.trim().split(/\s+/);
             const chunkDuration = chunk.end - chunk.start;
             const timePerWord = chunkDuration / Math.max(1, textWords.length);
             words = textWords.map((w, idx) => ({
@@ -546,7 +546,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if (words.length === 0) {
             const start = formatAssTime(chunk.start);
             const end = formatAssTime(chunk.end);
-            ass += \`Dialogue: 0,\${start},\${end},Captions,,0,0,0,,\${chunk.text}\\n\`;
+            ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${chunk.text}\n`;
             return;
         }
 
@@ -556,27 +556,27 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             const end = formatAssTime(w.end);
             
             if (preset === 'skillizee') {
-                let sentenceL0 = "{\\\\4a&HFF&}"; 
+                let sentenceL0 = "{\\4a&HFF&}"; 
                 for (let j = 0; j < words.length; j++) {
                     const cw = words[j];
                     if (j === i) {
-                        sentenceL0 += \`{\\\\1a&H00&\\\\3a&H00&\\\\c&H00FFFF&\\\\u1}\${cw.word}{\\\\u0} \`;
+                        sentenceL0 += `{\\1a&H00&\\3a&H00&\\c&H00FFFF&\\u1}${cw.word}{\\u0} `;
                     } else {
-                        sentenceL0 += \`{\\\\1a&HFF&\\\\3a&HFF&}\${cw.word} \`; 
+                        sentenceL0 += `{\\1a&HFF&\\3a&HFF&}${cw.word} `; 
                     }
                 }
-                ass += \`Dialogue: 0,\${start},\${end},Captions,,0,0,0,,\${sentenceL0.trim()}\\n\`;
+                ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${sentenceL0.trim()}\n`;
 
                 let sentenceL1 = "";
                 for (let j = 0; j < words.length; j++) {
                     const cw = words[j];
                     if (j === i) {
-                        sentenceL1 += \`{\\\\c&HEB6325&\\\\u0}\${cw.word}{\\\\c\${inactiveColor}} \`;
+                        sentenceL1 += `{\\c&HEB6325&\\u0}${cw.word}{\\c${inactiveColor}} `;
                     } else {
-                        sentenceL1 += \`\${cw.word} \`;
+                        sentenceL1 += `${cw.word} `;
                     }
                 }
-                ass += \`Dialogue: 1,\${start},\${end},Captions,,0,0,0,,\${sentenceL1.trim()}\\n\`;
+                ass += `Dialogue: 1,${start},${end},Captions,,0,0,0,,${sentenceL1.trim()}\n`;
 
             } else {
                 let sentence = "";
@@ -587,23 +587,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         if (activeColorList && activeColorList.length > 0) {
                             currentColor = activeColorList[i % activeColorList.length];
                         }
-                        let prefix = \`\\\\c\${currentColor}\${activeExtraTags}\`;
-                        let suffix = \`\\\\c\${inactiveColor}\${inactiveExtraTags}\`;
+                        let prefix = `\\c${currentColor}${activeExtraTags}`;
+                        let suffix = `\\c${inactiveColor}${inactiveExtraTags}`;
                         
                         if (activeScale) {
                             if (bouncyText) {
-                                sentence += \`{\\\\t(0,50,\\\\fscx125\\\\fscy125)\\\\t(50,200,\\\\fscx100\\\\fscy100)\${prefix}}\${cw.word}{\\\\fscx100\\\\fscy100\${suffix}} \`;
+                                sentence += `{\\t(0,50,\\fscx125\\fscy125)\\t(50,200,\\fscx100\\fscy100)${prefix}}${cw.word}{\\fscx100\\fscy100${suffix}} `;
                             } else {
-                                sentence += \`{\\\\fscx115\\\\fscy115\${prefix}}\${cw.word}{\\\\fscx100\\\\fscy100\${suffix}} \`;
+                                sentence += `{\\fscx115\\fscy115${prefix}}${cw.word}{\\fscx100\\fscy100${suffix}} `;
                             }
                         } else {
-                            sentence += \`{\${prefix}}\${cw.word}{\${suffix}} \`;
+                            sentence += `{${prefix}}${cw.word}{${suffix}} `;
                         }
                     } else {
-                        sentence += \`\${cw.word} \`;
+                        sentence += `${cw.word} `;
                     }
                 }
-                ass += \`Dialogue: 0,\${start},\${end},Captions,,0,0,0,,\${sentence.trim()}\\n\`;
+                ass += `Dialogue: 0,${start},${end},Captions,,0,0,0,,${sentence.trim()}\n`;
             }
         }
     });
@@ -835,9 +835,9 @@ app.post('/api/video/export', upload.single('video'), async (req, res) => {
             const sfxChain = `lowpass=f=800,volume='${volEq}':eval=frame[sfx]`;
             
             if (afStr) {
-                afStr = `[0:a]\${afStr}[a0];[1:a]\${sfxChain};[a0][sfx]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.8`;
+                afStr = `[0:a]${afStr}[a0];[1:a]${sfxChain};[a0][sfx]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.8`;
             } else {
-                afStr = `[0:a]volume=1.0[a0];[1:a]\${sfxChain};[a0][sfx]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.8`;
+                afStr = `[0:a]volume=1.0[a0];[1:a]${sfxChain};[a0][sfx]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.8`;
             }
         }
 
@@ -863,14 +863,14 @@ app.post('/api/video/export', upload.single('video'), async (req, res) => {
         
         if (viralSoundDesign && overlays.length > 0) {
             const newAudioIdx = 1 + overlays.length;
-            afStr = afStr.replace('[1:a]', `[\${newAudioIdx}:a]`);
+            afStr = afStr.replace('[1:a]', `[${newAudioIdx}:a]`);
         }
 
-        let ffmpegCmd = `"${ffmpegPath}" -y -ss ${startNum} -t ${duration} -i "${tempVideoPath}"${brollInputs}${audioInputs}`;
+        let ffmpegCmd = `ffmpeg -y -ss ${startNum} -t ${duration} -i "${tempVideoPath}"${brollInputs}${audioInputs}`;
         
         if (!isAudioOnly) {
             if (viralSoundDesign || (afStr && afStr.includes('[a0]')) || overlays.length > 0) {
-                let complexFilter = `[0:v]\${vfStr}[vbase];`;
+                let complexFilter = `[0:v]${vfStr}[vbase];`;
                 let currentV = 'vbase';
                 
                 for (let i = 0; i < downloadedImages.length; i++) {
@@ -881,16 +881,16 @@ app.post('/api/video/export', upload.single('video'), async (req, res) => {
                     const end = start + (overlay.duration || 3);
                     const brollFiltered = `b${i}`;
                     
-                    complexFilter += `[\${inputIdx}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},fade=t=in:st=${start}:d=0.3:alpha=1,fade=t=out:st=${end-0.3}:d=0.3:alpha=1[\${brollFiltered}];`;
-                    complexFilter += `[\${currentV}][\${brollFiltered}]overlay=0:0:enable='between(t,${start},${end})'[\${nextV}];`;
+                    complexFilter += `[${inputIdx}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},fade=t=in:st=${start}:d=0.3:alpha=1,fade=t=out:st=${end-0.3}:d=0.3:alpha=1[${brollFiltered}];`;
+                    complexFilter += `[${currentV}][${brollFiltered}]overlay=0:0:enable='between(t,${start},${end})'[${nextV}];`;
                     currentV = nextV;
                 }
                 
                 if (afStr) {
-                    complexFilter += `\${afStr}[a]`;
+                    complexFilter += `${afStr}[a]`;
                 }
                 
-                ffmpegCmd += ` -filter_complex "${complexFilter}" -map "[\${currentV}]" ${afStr ? '-map "[a]"' : '-map 0:a'} -r ${exportFps} -c:v ${vCodec} ${extraArgs}`;
+                ffmpegCmd += ` -filter_complex "${complexFilter}" -map "[${currentV}]" ${afStr ? '-map "[a]"' : '-map 0:a'} -r ${exportFps} -c:v ${vCodec} ${extraArgs}`;
                 if (aCodec) {
                     ffmpegCmd += ` -c:a ${aCodec} -b:a 128k`;
                 }
@@ -970,8 +970,8 @@ app.post('/api/video/export', upload.single('video'), async (req, res) => {
         } catch (error) {
             console.error("Export error:", error);
             let errorMessage = error.stderr || error.message;
-            if (typeof errorMessage === 'string' && errorMessage.includes('\\n')) {
-                errorMessage = errorMessage.split('\\n').slice(-20).join('\\n');
+            if (typeof errorMessage === 'string' && errorMessage.includes('\n')) {
+                errorMessage = errorMessage.split('\n').slice(-20).join('\n');
             }
             return res.status(500).json({ error: `Export failed:\n${errorMessage}` });
         }
