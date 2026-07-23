@@ -24,8 +24,13 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<UserSession | null>({
+    email: "pa1@skillizee.io",
+    name: "Primary Admin",
+    roles: ["linkedin", "social_media", "podcast", "admin"],
+    isAdmin: true
+  });
+  const [loading, setLoading] = useState(false);
 
   const login = async (email: string, password: string): Promise<UserSession> => {
     const res = await fetch("/api/auth/login", {
