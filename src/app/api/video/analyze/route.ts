@@ -199,7 +199,7 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
     }
 
     const captionsModel = captionsGenAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       generationConfig: { responseMimeType: "application/json" }
     });
 
