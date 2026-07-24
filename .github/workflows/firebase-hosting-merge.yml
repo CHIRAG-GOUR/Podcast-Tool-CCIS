@@ -14,13 +14,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Create .env file
         run: |
-          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-          echo "ADMIN_FIREBASE_PROJECT_ID=${{ secrets.ADMIN_FIREBASE_PROJECT_ID }}" >> .env
-          echo "ADMIN_FIREBASE_CLIENT_EMAIL=${{ secrets.ADMIN_FIREBASE_CLIENT_EMAIL }}" >> .env
-          echo "ADMIN_FIREBASE_STORAGE_BUCKET=${{ secrets.ADMIN_FIREBASE_STORAGE_BUCKET }}" >> .env
-          echo 'ADMIN_FIREBASE_PRIVATE_KEY="${{ secrets.ADMIN_FIREBASE_PRIVATE_KEY }}"' >> .env
-          echo "API_SECRET_TOKEN=${{ secrets.API_SECRET_TOKEN }}" >> .env
-          echo "NEXT_PUBLIC_API_SECRET_TOKEN=${{ secrets.NEXT_PUBLIC_API_SECRET_TOKEN }}" >> .env
+          cat << 'EOF' > .env
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          ADMIN_FIREBASE_PROJECT_ID=${{ secrets.ADMIN_FIREBASE_PROJECT_ID }}
+          ADMIN_FIREBASE_CLIENT_EMAIL=${{ secrets.ADMIN_FIREBASE_CLIENT_EMAIL }}
+          ADMIN_FIREBASE_STORAGE_BUCKET=${{ secrets.ADMIN_FIREBASE_STORAGE_BUCKET }}
+          ADMIN_FIREBASE_PRIVATE_KEY=${{ secrets.ADMIN_FIREBASE_PRIVATE_KEY }}
+          API_SECRET_TOKEN=${{ secrets.API_SECRET_TOKEN }}
+          NEXT_PUBLIC_API_SECRET_TOKEN=${{ secrets.NEXT_PUBLIC_API_SECRET_TOKEN }}
+          EOF
       - run: npm ci && npm run build
       - run: rm -rf .next/cache
       - uses: FirebaseExtended/action-hosting-deploy@v0
