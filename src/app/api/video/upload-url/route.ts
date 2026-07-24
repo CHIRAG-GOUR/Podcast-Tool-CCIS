@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const origin = req.headers.get('origin') || '';
     
     // 1. Token Check (from Frontend or Default)
-    const secretToken = process.env.API_SECRET_TOKEN || process.env.NEXT_PUBLIC_API_SECRET_TOKEN || 'skz-podcast-secret-2024-xK9mP2vL';
+    const secretToken = process.env.API_SECRET_TOKEN || process.env.NEXT_PUBLIC_API_SECRET_TOKEN || 'podcast_secure_v1_987654321';
     const isValidToken = authHeader === `Bearer ${secretToken}`;
     
     // 2. Origin Check (Allow localhost, vercel, and firebase hosting)
