@@ -22,15 +22,20 @@ const execPromise = util.promisify(exec);
 let storage, db;
 try {
     if (!admin.apps.length) {
-        admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId: process.env.FIREBASE_PROJECT_ID,
-                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                // Replace \n with actual newline characters
-                privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-            }),
-            storageBucket: process.env.FIREBASE_STORAGE_BUCKET
-        });
+        if (process.env.FIREBASE_PRIVATE_KEY) {
+            admin.initializeApp({
+                credential: admin.credential.cert({
+                    projectId: process.env.FIREBASE_PROJECT_ID,
+                    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+                }),
+                storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'skillizee-products.firebasestorage.app'
+            });
+        } else {
+            admin.initializeApp({
+                storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'skillizee-products.firebasestorage.app'
+            });
+        }
     }
     storage = admin.storage();
     db = admin.firestore();
@@ -45,6 +50,30 @@ app.use(cors()); // Allow all origins
 const upload = multer({ dest: tmpdir() });
 
 const ffmpegPath = "ffmpeg"; // System ffmpeg installed via Docker
+
+app.post('/api/video/upload-url', express.json(), async (req, res) => {
+    try {
+        const { filename, contentType } = req.body;
+        if (!filename || !contentType) {
+            return res.status(400).json({ error: 'filename and contentType are required' });
+        }
+        
+        const file = storage.bucket(process.env.FIREBASE_STORAGE_BUCKET || 'skillizee-products.firebasestorage.app')
+            .file(`uploads/${Date.now()}_${filename}`);
+            
+        const [url] = await file.getSignedUrl({
+            version: 'v4',
+            action: 'write',
+            expires: Date.now() + 15 * 60 * 1000, // 15 mins
+            contentType
+        });
+        
+        res.json({ uploadUrl: url, fileKey: file.name });
+    } catch (error) {
+        console.error("Signed URL error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok' });

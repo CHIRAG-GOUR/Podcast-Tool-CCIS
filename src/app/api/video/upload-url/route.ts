@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { storage } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,18 +22,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Filename and content type required' }, { status: 400 });
     }
 
-    const uniqueFilename = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const fileKey = `uploads/${uniqueFilename}`;
-    const file = storage.bucket().file(fileKey);
+    const baseUrl = process.env.NEXT_PUBLIC_CLOUD_RUN_URL || "https://skillizee-video-backend-1011375873388.us-central1.run.app";
     
-    const [url] = await file.getSignedUrl({
-      version: 'v4',
-      action: 'write',
-      expires: Date.now() + 15 * 60 * 1000, // 15 mins
-      contentType,
+    const backendRes = await fetch(`${baseUrl}/api/video/upload-url`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ filename, contentType })
     });
     
-    return NextResponse.json({ url, key: fileKey });
+    if (!backendRes.ok) {
+        throw new Error(await backendRes.text());
+    }
+    
+    const data = await backendRes.json();
+    return NextResponse.json({ url: data.uploadUrl, key: data.fileKey });
   } catch (error: any) {
     console.error("Signed URL error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
