@@ -16,15 +16,18 @@ export async function POST(req: NextRequest) {
     const authHeader = req.headers.get('authorization');
     const origin = req.headers.get('origin') || '';
     
-    // 1. Token Check (from Frontend)
-    const isValidToken = authHeader === `Bearer ${process.env.API_SECRET_TOKEN}`;
+    // 1. Token Check (from Frontend or Default)
+    const secretToken = process.env.API_SECRET_TOKEN || process.env.NEXT_PUBLIC_API_SECRET_TOKEN || 'skz-podcast-secret-2024-xK9mP2vL';
+    const isValidToken = authHeader === `Bearer ${secretToken}`;
     
-    // 2. Origin Check
+    // 2. Origin Check (Allow localhost, vercel, and firebase hosting)
     const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
     const isVercel = origin.includes('.vercel.app') || origin.includes('skillizee');
-    const isValidOrigin = !origin || isLocal || isVercel;
+    const isFirebase = origin.includes('.web.app') || origin.includes('.firebaseapp.com');
+    const isValidOrigin = !origin || isLocal || isVercel || isFirebase;
 
     if (!isValidToken || !isValidOrigin) {
+      console.warn(`[SECURITY REJECTED] Unauthorized upload-url request. Origin: ${origin}, Token matched: ${isValidToken}`);
       return NextResponse.json({ error: 'Unauthorized access.' }, { status: 403 });
     }
 
@@ -35,7 +38,8 @@ export async function POST(req: NextRequest) {
 
     const uniqueFilename = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const fileKey = `uploads/${uniqueFilename}`;
-    const file = storage.bucket().file(fileKey);
+    const bucketName = process.env.ADMIN_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || 'skillizee-products.firebasestorage.app';
+    const file = storage.bucket(bucketName).file(fileKey);
     
     const [url] = await file.getSignedUrl({
       version: 'v4',

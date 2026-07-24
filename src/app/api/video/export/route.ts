@@ -371,7 +371,8 @@ export async function POST(req: Request) {
     
     if (fileKey) {
         console.log(`Generating Read Signed URL for FFMPEG input from Firebase Storage: ${fileKey}`);
-        const [url] = await storage.bucket().file(fileKey).getSignedUrl({
+        const bucketName = process.env.ADMIN_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || 'skillizee-products.firebasestorage.app';
+        const [url] = await storage.bucket(bucketName).file(fileKey).getSignedUrl({
             version: 'v4',
             action: 'read',
             expires: Date.now() + 2 * 60 * 60 * 1000, // 2 hours
@@ -626,7 +627,8 @@ export async function POST(req: Request) {
         // Save to Firebase Storage
         try {
             console.log("Uploading to Firebase Storage...");
-            const bucket = storage.bucket();
+            const bucketName = process.env.ADMIN_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || 'skillizee-products.firebasestorage.app';
+            const bucket = storage.bucket(bucketName);
             const firebaseFileName = `exports/Skillizee_Export_${uniqueId.substring(0,8)}.${ext}`;
             const fileUpload = bucket.file(firebaseFileName);
             

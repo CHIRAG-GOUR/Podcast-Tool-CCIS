@@ -24,14 +24,15 @@ export async function POST(req: Request) {
     const clientIp = req.headers.get('x-forwarded-for') || 'Unknown IP';
     const userAgent = req.headers.get('user-agent') || 'Unknown User Agent';
     
-    // 1. Token Check (from Frontend)
-    const isValidToken = authHeader === `Bearer ${process.env.API_SECRET_TOKEN}`;
+    // 1. Token Check (from Frontend or Default)
+    const secretToken = process.env.API_SECRET_TOKEN || process.env.NEXT_PUBLIC_API_SECRET_TOKEN || 'skz-podcast-secret-2024-xK9mP2vL';
+    const isValidToken = authHeader === `Bearer ${secretToken}`;
     
     // 2. Origin Check (Prevent CSRF / external bots)
-    // Only allow if no origin (cURL with token) OR if it matches our expected domains
     const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
     const isVercel = origin.includes('.vercel.app') || origin.includes('skillizee');
-    const isValidOrigin = !origin || isLocal || isVercel;
+    const isFirebase = origin.includes('.web.app') || origin.includes('.firebaseapp.com');
+    const isValidOrigin = !origin || isLocal || isVercel || isFirebase;
 
     if (!isValidToken || !isValidOrigin) {
       console.warn(`[SECURITY REJECTED] Bot or unauthorized access attempt. IP: ${clientIp}, Origin: ${origin}, UA: ${userAgent}`);
