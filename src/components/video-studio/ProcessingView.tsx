@@ -47,7 +47,8 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
         });
         
         if (!urlRes.ok) {
-          throw new Error("Failed to initialize upload. Please try again.");
+          const errData = await urlRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Upload initialization failed (${urlRes.status}). Please try again.`);
         }
         
         const { url: signedUrl, key: fileKey } = await urlRes.json();

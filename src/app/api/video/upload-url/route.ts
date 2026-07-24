@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@/lib/firebase-admin";
+import { getApps } from "firebase-admin/app";
 
 export async function POST(req: NextRequest) {
   try {
+    // Guard: ensure Firebase Admin is initialized before attempting storage ops
+    if (!getApps().length) {
+      console.error("Firebase Admin not initialized — missing ADMIN_FIREBASE_* env vars on Vercel?");
+      return NextResponse.json(
+        { error: "Server configuration error: Firebase Storage is not initialized. Check environment variables." },
+        { status: 503 }
+      );
+    }
+
     const authHeader = req.headers.get('authorization');
     const origin = req.headers.get('origin') || '';
     
@@ -37,6 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url, key: fileKey });
   } catch (error: any) {
     console.error("Signed URL error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
+

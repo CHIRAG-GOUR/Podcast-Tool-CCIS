@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import fs from "fs";
-import { getApps, initializeApp, cert, getApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+// Use the shared Firebase Admin initialization — do NOT duplicate initializeApp here
+import { db as sharedDb } from "@/lib/firebase-admin";
 
 const LOCAL_DB_PATH = "e:/skilizee/users-db.json";
 
@@ -61,33 +61,9 @@ const DEFAULT_USERS: User[] = [
   }
 ];
 
-// Initialize Firestore
-let firestoreDb: any = null;
-const projectId = process.env.ADMIN_FIREBASE_PROJECT_ID;
-const clientEmail = process.env.ADMIN_FIREBASE_CLIENT_EMAIL;
-const privateKey = process.env.ADMIN_FIREBASE_PRIVATE_KEY;
-
-if (projectId && clientEmail && privateKey) {
-  try {
-    const appsList = getApps();
-    let app;
-    if (appsList.length === 0) {
-      app = initializeApp({
-        credential: cert({
-          projectId,
-          clientEmail,
-          privateKey: privateKey.replace(/\\n/g, "\n"),
-        }),
-      });
-    } else {
-      app = getApp();
-    }
-    firestoreDb = getFirestore(app);
-    console.log("Firebase Admin SDK successfully initialized for db.ts");
-  } catch (error) {
-    console.error("Firebase Admin SDK initialization failed in db.ts, falling back to local file:", error);
-  }
-}
+// Use the shared Firestore instance from firebase-admin.ts
+// If Firebase Admin failed to initialize, sharedDb will be a dummy {} object
+const firestoreDb: any = sharedDb && typeof sharedDb.collection === 'function' ? sharedDb : null;
 
 // Memory fallback if both firestore and fs fail
 let memoryStore = [...DEFAULT_USERS];
