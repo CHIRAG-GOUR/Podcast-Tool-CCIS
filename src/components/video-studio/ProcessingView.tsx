@@ -68,7 +68,7 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
         formData.append("fileKey", fileKey);
         if (context) formData.append("context", context);
 
-        const baseUrl = process.env.NEXT_PUBLIC_CLOUD_RUN_URL || "https://skillizee-video-backend-1011375873388.us-central1.run.app";
+        const baseUrl = process.env.NEXT_PUBLIC_CLOUD_RUN_URL || "";
         const res = await fetch(`${baseUrl}/api/video/analyze`, {
           headers: {
             "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}`
