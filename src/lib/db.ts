@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import 'server-only';
 import fs from "fs";
 // Use the shared Firebase Admin initialization — do NOT duplicate initializeApp here
 import { db as sharedDb } from "@/lib/firebase-admin";

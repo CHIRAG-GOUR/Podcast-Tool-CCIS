@@ -2047,8 +2047,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                     }, 2000);
 
                                     try {
-                                       const baseUrl = process.env.NEXT_PUBLIC_CLOUD_RUN_URL || "";
-                                       const res = await fetch(`${baseUrl}/api/video/export`, {
+                                       const res = await fetch(`/api/video/export`, {
                                           method: "POST",
                                           body: formData
                                        });

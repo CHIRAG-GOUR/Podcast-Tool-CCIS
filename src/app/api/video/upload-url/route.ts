@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { storage } from "@/lib/firebase-admin";
-import { getApps } from "firebase-admin/app";
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    // Guard: ensure Firebase Admin is initialized before attempting storage ops
-    if (!getApps().length) {
-      console.error("Firebase Admin not initialized — missing ADMIN_FIREBASE_* env vars on Vercel?");
-      return NextResponse.json(
-        { error: "Server configuration error: Firebase Storage is not initialized. Check environment variables." },
-        { status: 503 }
-      );
-    }
-
     const authHeader = req.headers.get('authorization');
     const origin = req.headers.get('origin') || '';
     
@@ -36,10 +27,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Filename and content type required' }, { status: 400 });
     }
 
+    // Initialize Firebase Admin safely inside handler
+    const admin = require('firebase-admin');
+    const projectId = process.env.ADMIN_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || 'skillizee-products';
+    const clientEmail = process.env.ADMIN_FIREBASE_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL;
+    const rawPrivateKey = process.env.ADMIN_FIREBASE_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY;
+    const storageBucket = process.env.ADMIN_FIREBASE_STORAGE_BUCKET
+      || process.env.FIREBASE_STORAGE_BUCKET
+      || `${projectId}.firebasestorage.app`;
+
+    if (!admin.apps.length) {
+      if (projectId && clientEmail && rawPrivateKey) {
+        let privateKey = rawPrivateKey;
+        if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || 
+            (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
+          privateKey = privateKey.slice(1, -1);
+        }
+        privateKey = privateKey.replace(/\\n/g, '\n');
+
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId,
+            clientEmail,
+            privateKey,
+          }),
+          storageBucket,
+        });
+      } else {
+        admin.initializeApp({ storageBucket });
+      }
+    }
+
+    const storage = admin.storage();
     const uniqueFilename = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const fileKey = `uploads/${uniqueFilename}`;
-    const bucketName = process.env.ADMIN_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || 'skillizee-products.firebasestorage.app';
-    const file = storage.bucket(bucketName).file(fileKey);
+    const file = storage.bucket(storageBucket).file(fileKey);
+    
+    console.log(`[upload-url] Generating signed URL for bucket=${storageBucket}, file=${fileKey}`);
     
     const [url] = await file.getSignedUrl({
       version: 'v4',
@@ -48,10 +72,13 @@ export async function POST(req: NextRequest) {
       contentType,
     });
     
+    console.log("[upload-url] Signed URL generated successfully");
     return NextResponse.json({ url, key: fileKey });
   } catch (error: any) {
-    console.error("Signed URL error:", error);
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    console.error("[upload-url] Error:", error?.message, error?.stack);
+    return NextResponse.json(
+      { error: error?.message || "Internal server error" },
+      { status: 500 }
+    );
   }
 }
-
