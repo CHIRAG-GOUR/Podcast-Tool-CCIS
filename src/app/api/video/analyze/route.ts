@@ -301,7 +301,7 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
       });
     });
 
-    return NextResponse.json({ clips: parsedClips, captions: [], cuts: parsedCuts, fileKey: fileKey || "" });
+    return NextResponse.json({ clips: parsedClips, captions: parsedCaptions, cuts: parsedCuts, fileKey: fileKey || "" });
   } catch (error: any) {
     console.error('Video Analysis API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });

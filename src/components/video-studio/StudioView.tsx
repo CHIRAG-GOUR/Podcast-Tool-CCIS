@@ -988,7 +988,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                         let activeChunk: any = null;
                         let displayWords: any[] = [];
                         if (clip.chunks && clip.chunks.length > 0) {
-                           activeChunk = clip.chunks.find((ch: any) => currentTime >= ch.start && currentTime <= ch.end);
+                           activeChunk = clip.chunks.find((ch: any) => (currentTime - clip.start) >= ch.start && (currentTime - clip.start) <= ch.end);
                            if (activeChunk) {
                               displayText = activeChunk.text;
                               if (activeChunk.words && activeChunk.words.length > 0) {
@@ -1005,8 +1005,8 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                  }));
                               }
                            } else {
-                              const nextChunk = clip.chunks.find((ch: any) => ch.start > currentTime);
-                              const prevChunk = [...clip.chunks].reverse().find((ch: any) => ch.end < currentTime);
+                              const nextChunk = clip.chunks.find((ch: any) => ch.start > (currentTime - clip.start));
+                              const prevChunk = [...clip.chunks].reverse().find((ch: any) => ch.end < (currentTime - clip.start));
                               displayText = nextChunk ? nextChunk.text : (prevChunk ? prevChunk.text : "(Caption Placeholder)");
                               isVisible = false;
                            }
@@ -1227,7 +1227,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                        {displayWords.length > 0 ? (
                                           <div style={{ display: 'inline-flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
                                              {displayWords.map((w: any, idx: number) => {
-                                                const isActiveWord = currentTime >= w.start && currentTime <= w.end;
+                                                const isActiveWord = (currentTime - clip.start) >= w.start && (currentTime - clip.start) <= w.end;
 
                                                 let currentActiveColor = activeColor;
                                                 let currentStroke = baseStyle.WebkitTextStroke;
@@ -1999,7 +1999,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
 
                                     if (textClip) {
                                        let exportTextClip = JSON.parse(JSON.stringify(textClip));
-                                       
+
                                        // Shift chunk times relative to the FFMPEG export window
                                        // FFMPEG starts at 0, corresponding to 'start_time' on the timeline.
                                        // chunk absolute time = textClip.start + chunk.start
@@ -2014,7 +2014,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                              end: textClip.start + w.end - start_time
                                           }))
                                        })).filter((chunk: any) => chunk.start >= 0 && chunk.end > 0);
-                                       
+
                                        formData.append("captions", JSON.stringify(exportTextClip));
                                        if (previewContainerRef.current) {
                                           formData.append("canvas_width", previewContainerRef.current.clientWidth.toString());
