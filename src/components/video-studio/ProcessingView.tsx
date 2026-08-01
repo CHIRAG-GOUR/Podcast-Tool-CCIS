@@ -12,7 +12,7 @@ interface ProcessingViewProps {
 }
 
 const STEPS = [
-  "Upload Complete",
+  "Uploading Video",
   "Analyzing Video Content",
   "Generating Smart Clips",
   "Finalizing Project"
@@ -23,15 +23,6 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let current = 0
-    // We will advance the UI steps slowly to simulate progress while the API is actually processing
-    const interval = setInterval(() => {
-      current++
-      if (current < STEPS.length - 1) {
-        setCurrentStepIndex(current)
-      }
-    }, 4000) // advance every 4s, but pause at the last step
-
     const processVideo = async () => {
       try {
         if (!file) throw new Error("No file selected");
@@ -53,16 +44,54 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
         
         const { url: signedUrl, key: fileKey } = await urlRes.json();
         
-        // 2. Upload to Cloud Storage directly
-        const uploadRes = await fetch(signedUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file
+        // 2. Upload to Cloud Storage directly using Resumable Upload protocol for better stability with large files
+        const initRes = await fetch(signedUrl, {
+          method: "POST",
+          headers: {
+            "x-goog-resumable": "start",
+            "Content-Type": file.type
+          }
         });
         
-        if (!uploadRes.ok) {
-          throw new Error("Failed to upload video to cloud. The file might be too large.");
+        if (!initRes.ok) {
+           throw new Error("Failed to initialize resumable upload session.");
         }
+        
+        const sessionUrl = initRes.headers.get("location");
+        if (!sessionUrl) {
+           throw new Error("Failed to get resumable upload session URL.");
+        }
+
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", sessionUrl, true);
+          xhr.setRequestHeader("Content-Type", file.type);
+          
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(xhr.response);
+            } else {
+              reject(new Error(`Failed to upload video to cloud. Status: ${xhr.status}`));
+            }
+          };
+          
+          xhr.onerror = () => reject(new Error("Network error occurred during upload."));
+          xhr.onabort = () => reject(new Error("Upload aborted."));
+          
+          xhr.send(file);
+        });
+        
+        // Advance step after successful upload
+        setCurrentStepIndex(1);
+
+        // Fake processing steps for Analysis and Generation
+        const interval = setInterval(() => {
+          setCurrentStepIndex(prev => {
+            if (prev < STEPS.length - 1) return prev + 1;
+            clearInterval(interval);
+            return prev;
+          });
+        }, 8000); // 8s per fake step
         
         // 3. Trigger Analysis via the fileKey
         const formData = new FormData();
