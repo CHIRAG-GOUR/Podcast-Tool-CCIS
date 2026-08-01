@@ -283,17 +283,33 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
       const clipEnd = parseFloat(clip.end_time);
       clip.captions = [];
       
+      const parseTime = (val: any): number => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+          if (val.includes(':')) {
+            const parts = val.split(':').map(Number);
+            if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+            if (parts.length === 2) return parts[0] * 60 + parts[1];
+          }
+          return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+        }
+        return 0;
+      };
+
       parsedCaptions.forEach((phrase: any) => {
         // If phrase overlaps with clip
-        if (phrase.start >= clipStart - 1.0 && phrase.end <= clipEnd + 1.0) {
+        const phraseStart = typeof phrase.start !== 'undefined' ? parseTime(phrase.start) : (typeof phrase.start_time !== 'undefined' ? parseTime(phrase.start_time) : 0);
+        const phraseEnd = typeof phrase.end !== 'undefined' ? parseTime(phrase.end) : (typeof phrase.end_time !== 'undefined' ? parseTime(phrase.end_time) : 0);
+
+        if (phraseStart >= clipStart - 1.0 && phraseEnd <= clipEnd + 1.0) {
            let p = JSON.parse(JSON.stringify(phrase));
-           p.start = Math.max(0, p.start - clipStart);
-           p.end = Math.max(0, p.end - clipStart);
+           p.start = Math.max(0, phraseStart - clipStart);
+           p.end = Math.max(0, phraseEnd - clipStart);
            if (p.words) {
                p.words = p.words.map((w: any) => ({
                    ...w,
-                   start: Math.max(0, w.start - clipStart),
-                   end: Math.max(0, w.end - clipStart)
+                   start: Math.max(0, (typeof w.start !== 'undefined' ? parseTime(w.start) : phraseStart) - clipStart),
+                   end: Math.max(0, (typeof w.end !== 'undefined' ? parseTime(w.end) : phraseEnd) - clipStart)
                }));
            }
            clip.captions.push(p);
