@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 interface ProcessingViewProps {
   file: File | null
   context?: string
-  onComplete: (data: any) => void
+  onComplete: (data: unknown) => void
   onCancel?: () => void
 }
 
@@ -23,79 +23,76 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let intervalTimer: NodeJS.Timeout | null = null;
     const processVideo = async () => {
       try {
         if (!file) throw new Error("No file selected");
-        
-        // 1. Get signed URL
-        const urlRes = await fetch("/api/video/upload-url", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}`
-          },
-          body: JSON.stringify({ filename: file.name, contentType: file.type })
-        });
-        
-        if (!urlRes.ok) {
-          const errData = await urlRes.json().catch(() => ({}));
-          throw new Error(errData.error || `Upload initialization failed (${urlRes.status}). Please try again.`);
-        }
-        
-        const { url: signedUrl, key: fileKey } = await urlRes.json();
-        
-        // 2. Upload to Cloud Storage directly using Resumable Upload protocol for better stability with large files
-        const initRes = await fetch(signedUrl, {
-          method: "POST",
-          headers: {
-            "x-goog-resumable": "start",
-            "Content-Type": file.type
+
+        let fileKey: string | null = null;
+
+        // 1. Attempt Cloud Storage signed URL upload (resumable for large files in production)
+        try {
+          const urlRes = await fetch("/api/video/upload-url", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}`
+            },
+            body: JSON.stringify({ filename: file.name, contentType: file.type })
+          });
+
+          if (urlRes.ok) {
+            const urlData = await urlRes.json().catch(() => ({}));
+            if (urlData.url && urlData.key) {
+              const initRes = await fetch(urlData.url, {
+                method: "POST",
+                headers: {
+                  "x-goog-resumable": "start",
+                  "Content-Type": file.type
+                }
+              });
+
+              if (initRes.ok) {
+                const sessionUrl = initRes.headers.get("location");
+                if (sessionUrl) {
+                  await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open("PUT", sessionUrl, true);
+                    xhr.setRequestHeader("Content-Type", file.type);
+                    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve(xhr.response) : reject(new Error(`Status ${xhr.status}`));
+                    xhr.onerror = () => reject(new Error("Network error"));
+                    xhr.onabort = () => reject(new Error("Aborted"));
+                    xhr.send(file);
+                  });
+                  fileKey = urlData.key;
+                  console.log("[ProcessingView] Cloud storage upload complete. fileKey:", fileKey);
+                }
+              }
+            }
           }
-        });
-        
-        if (!initRes.ok) {
-           throw new Error("Failed to initialize resumable upload session.");
-        }
-        
-        const sessionUrl = initRes.headers.get("location");
-        if (!sessionUrl) {
-           throw new Error("Failed to get resumable upload session URL.");
+        } catch (cloudErr) {
+          console.warn("[ProcessingView] Cloud storage signed URL upload failed/unavailable, falling back to direct upload:", cloudErr);
         }
 
-        await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("PUT", sessionUrl, true);
-          xhr.setRequestHeader("Content-Type", file.type);
-          
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(xhr.response);
-            } else {
-              reject(new Error(`Failed to upload video to cloud. Status: ${xhr.status}`));
-            }
-          };
-          
-          xhr.onerror = () => reject(new Error("Network error occurred during upload."));
-          xhr.onabort = () => reject(new Error("Upload aborted."));
-          
-          xhr.send(file);
-        });
-        
-        // Advance step after successful upload
+        // Advance step after upload initialization
         setCurrentStepIndex(1);
 
         // Fake processing steps for Analysis and Generation
-        const interval = setInterval(() => {
+        intervalTimer = setInterval(() => {
           setCurrentStepIndex(prev => {
             if (prev < STEPS.length - 1) return prev + 1;
-            clearInterval(interval);
+            if (intervalTimer) clearInterval(intervalTimer);
             return prev;
           });
         }, 8000); // 8s per fake step
-        
-        // 3. Trigger Analysis via the fileKey
+
+        // 2. Trigger Analysis via fileKey (cloud) or direct video file (local/fallback)
         const formData = new FormData();
-        formData.append("fileKey", fileKey);
+        if (fileKey) {
+          formData.append("fileKey", fileKey);
+        } else {
+          formData.append("video", file);
+        }
         if (context) formData.append("context", context);
 
         const res = await fetch(`/api/video/analyze`, {
@@ -111,48 +108,51 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
           try {
             const errData = await res.json();
             if (errData.error) errMessage = errData.error;
-          } catch(e) {}
+          } catch { }
           throw new Error(errMessage);
         }
 
         const data = await res.json();
 
-        clearInterval(interval);
+        if (intervalTimer) clearInterval(intervalTimer);
         setCurrentStepIndex(STEPS.length); // complete all steps
         setTimeout(() => {
           onComplete(data);
         }, 1000);
 
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errObj = err as { message?: string };
         console.error("Video processing error:", err);
-        setError(err.message || "Failed to analyze video. Please try again.");
-        clearInterval(interval);
+        setError(errObj.message || "Failed to analyze video. Please try again.");
+        if (intervalTimer) clearInterval(intervalTimer);
       }
     };
 
     processVideo();
 
-    return () => clearInterval(interval);
-  }, [file, onComplete]);
+    return () => {
+      if (intervalTimer) clearInterval(intervalTimer);
+    };
+  }, [file, context, onComplete]);
 
   return (
     <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-3xl p-6 md:p-10 shadow-xl relative overflow-hidden">
       {/* Decorative background blur */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-      
+
       <div className="text-center mb-10 relative z-10">
         <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <Sparkles className="w-8 h-8 text-primary animate-pulse" />
         </div>
         {error ? (
-           <h2 className="text-3xl font-bold mb-3 text-red-600">Processing Failed</h2>
+          <h2 className="text-3xl font-bold mb-3 text-red-600">Processing Failed</h2>
         ) : (
-           <h2 className="text-3xl font-bold mb-3 text-gray-900">AI Engine Processing</h2>
+          <h2 className="text-3xl font-bold mb-3 text-gray-900">AI Engine Processing</h2>
         )}
         <p className={error ? "text-red-500 font-medium" : "text-gray-500"}>
-          {error 
-             ? error
-             : (file?.name ? `Analyzing ${file.name}...` : 'Analyzing your video...') + " You can safely leave this page, we'll notify you when it's done."}
+          {error
+            ? error
+            : (file?.name ? `Analyzing ${file.name}...` : 'Analyzing your video...') + " You can safely leave this page, we'll notify you when it's done."}
         </p>
       </div>
 
@@ -165,14 +165,14 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
             <div key={step} className="flex items-center gap-4 relative">
               {/* Connector Line */}
               {index !== STEPS.length - 1 && (
-                <div 
+                <div
                   className={cn(
                     "absolute left-[11px] top-[30px] bottom-[-24px] w-[2px]",
                     isCompleted ? "bg-primary" : "bg-border"
-                  )} 
+                  )}
                 />
               )}
-              
+
               <div className="relative z-10">
                 {isCompleted ? (
                   <CheckCircle2 className="w-6 h-6 text-primary fill-primary/10" />
@@ -182,8 +182,8 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
                   <Circle className="w-6 h-6 text-gray-300" />
                 )}
               </div>
-              
-              <span 
+
+              <span
                 className={cn(
                   "font-medium md:text-lg transition-colors duration-300",
                   isCompleted ? "text-gray-900" : isCurrent ? "text-blue-600 font-semibold" : "text-gray-400"
@@ -198,12 +198,12 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
 
       {error && (
         <div className="mt-8 flex justify-center">
-           <button 
-             onClick={onCancel}
-             className="px-6 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 font-medium transition-colors"
-           >
-             Go Back & Try Again
-           </button>
+          <button
+            onClick={onCancel}
+            className="px-6 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 font-medium transition-colors"
+          >
+            Go Back & Try Again
+          </button>
         </div>
       )}
     </div>

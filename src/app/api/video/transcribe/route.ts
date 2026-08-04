@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { exec } from 'child_process';
 import util from 'util';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { segmentTranscriptIntoCaptions } from '@/lib/caption-utils';
 
 const execPromise = util.promisify(exec);
 
@@ -58,29 +59,24 @@ export async function POST(req: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     tempVideoPath = join(tmpdir(), `${uuidv4()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
-    const tempAudioPath = tempVideoPath + '.mp3';
     
     await writeFile(tempVideoPath, buffer);
-    console.log(`Saved temp video to ${tempVideoPath} for transcription`);
+    console.log(`[CAPTION PIPELINE] Saved temp video to ${tempVideoPath} for transcription`);
 
     // Use FFMPEG to extract just the required audio slice
     let uploadMime = file.type;
     finalUploadPath = tempVideoPath;
     
     if (startTime && endTime) {
-      console.log(`Extracting audio slice from ${startTime}s to ${endTime}s...`);
+      console.log(`[CAPTION PIPELINE] Extracting audio slice from ${startTime}s to ${endTime}s...`);
       try {
-
-
-        // -vn removes video. -c:a aac is universally supported by ffmpeg builds. We save as .mp4 container for audio to ensure compatibility if mp3 fails.
-        // Wait, Gemini File API supports mp3, wav, aac, m4a. We will use aac in an m4a container.
         const safeAudioPath = tempVideoPath + '.m4a';
         await execPromise(`"${ffmpegInstaller.path}" -y -i "${tempVideoPath}" -ss ${startTime} -to ${endTime} -vn -c:a aac -b:a 128k "${safeAudioPath}"`);
         finalUploadPath = safeAudioPath;
         uploadMime = "audio/m4a";
-        console.log(`Extracted audio successfully to ${safeAudioPath}`);
+        console.log(`[CAPTION PIPELINE] Extracted audio successfully to ${safeAudioPath}`);
       } catch (err) {
-        console.error("FFMPEG Audio Extraction failed, falling back to full video upload:", err);
+        console.error("[CAPTION PIPELINE] FFMPEG Audio Extraction failed, falling back to full video upload:", err);
       }
     }
 
@@ -88,12 +84,13 @@ export async function POST(req: Request) {
     const fileManager = new GoogleAIFileManager(apiKey);
     const genAI = new GoogleGenerativeAI(apiKey);
     
+    console.log(`[CAPTION PIPELINE] Uploading audio to Gemini for transcription...`);
     const uploadResult = await fileManager.uploadFile(finalUploadPath, {
       mimeType: uploadMime,
       displayName: "Transcription_" + file.name,
     });
     
-    console.log(`Uploaded file to Gemini for transcription: ${uploadResult.file.name}`);
+    console.log(`[CAPTION PIPELINE] Uploaded file to Gemini for transcription: ${uploadResult.file.name}`);
     uploadedFileName = uploadResult.file.name;
 
     if (uploadMime.startsWith('video/')) {
@@ -109,10 +106,9 @@ export async function POST(req: Request) {
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const duration = parseFloat(endTime) - parseFloat(startTime);
     const prompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this audio.
 CRITICAL INSTRUCTION: Break the transcription into short phrases (3-5 words) suitable for fast-paced Captions.ai style videos.
-DO NOT include any emojis or non-text symbols in the transcription. Return ONLY the spoken words.
+DO NOT include any emojis, non-text symbols, or sound/silence tags like [Silence], (Silence), (Laughter), or [Music]. Return ONLY the spoken words.
 For each phrase, you MUST also provide an array of the exact individual words spoken, with word-level timestamps.
 
 Return a JSON array of phrase objects. Each object must have:
@@ -138,10 +134,8 @@ Return ONLY valid JSON without markdown formatting.`;
 
     const rawResponse = result.response.text();
 
-    let parsedCaptions = [];
+    let parsedCaptions: unknown[] = [];
     try {
-
-
       const cleaned = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
       const start = cleaned.indexOf('[');
       const end = cleaned.lastIndexOf(']');
@@ -150,16 +144,19 @@ Return ONLY valid JSON without markdown formatting.`;
       } else {
           parsedCaptions = JSON.parse(cleaned);
       }
-    } catch (e) {
-      console.error("Failed to parse Gemini transcription output:", e);
+    } catch {
+      console.error("[CAPTION PIPELINE] Failed to parse Gemini transcription output");
       return NextResponse.json({ error: "Failed to parse AI output." }, { status: 500 });
     }
 
-    return NextResponse.json({ captions: parsedCaptions });
-  } catch (error: any) {
-    const DUMMY_CACHE_BUSTER_VARIABLE_FOR_TURBOPACK = true;
+    const formattedCaptions = segmentTranscriptIntoCaptions(parsedCaptions);
+    console.log(`[CAPTION PIPELINE] Transcribe complete - Returning ${formattedCaptions.length} timed caption segments.`);
+
+    return NextResponse.json({ captions: formattedCaptions });
+  } catch (error: unknown) {
+    const errObj = error as { message?: string };
     console.error('Video Transcription API Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: errObj.message || 'Internal Server Error' }, { status: 500 });
   } finally {
     if (tempVideoPath) await unlink(tempVideoPath).catch(() => {});
     if (finalUploadPath && finalUploadPath !== tempVideoPath) await unlink(finalUploadPath).catch(() => {});
@@ -167,7 +164,7 @@ Return ONLY valid JSON without markdown formatting.`;
       try {
         const fm = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
         await fm.deleteFile(uploadedFileName).catch(() => {});
-      } catch(e) {}
+      } catch {}
     }
   }
 }
