@@ -535,9 +535,37 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                        mediaEnd: mediaEnd
                                     }];
 
-                                    if (clip.captions && clip.captions.length > 0) {
-                                       console.log(`[CAPTION PIPELINE] Processing ${clip.captions.length} captions for clip '${clip.title}'`);
-                                       const formatted = segmentTranscriptIntoCaptions(clip.captions);
+                                    let clipCaptions = clip.captions;
+                                    const mStart = mediaStart || 0;
+                                    const mEnd = mediaEnd || (mStart + duration);
+
+                                    if ((!clipCaptions || clipCaptions.length === 0) && initialCaptions && initialCaptions.length > 0) {
+                                       console.log(`[CAPTION PIPELINE] Slicing initialCaptions for clip '${clip.title}' (${mStart}s - ${mEnd}s)`);
+                                       clipCaptions = initialCaptions
+                                          .filter((c: any) => {
+                                             const s = c.start ?? c.start_time ?? 0;
+                                             const e = c.end ?? c.end_time ?? 0;
+                                             return s >= mStart - 1.0 && e <= mEnd + 1.0;
+                                          })
+                                          .map((c: any) => {
+                                             const origStart = c.start ?? c.start_time ?? 0;
+                                             const origEnd = c.end ?? c.end_time ?? 0;
+                                             return {
+                                                ...c,
+                                                start: Math.max(0, origStart - mStart),
+                                                end: Math.max(0, origEnd - mStart),
+                                                words: c.words ? c.words.map((w: any) => ({
+                                                   ...w,
+                                                   start: Math.max(0, (w.start ?? origStart) - mStart),
+                                                   end: Math.max(0, (w.end ?? origEnd) - mStart),
+                                                })) : []
+                                             };
+                                          });
+                                    }
+
+                                    if (clipCaptions && clipCaptions.length > 0) {
+                                       console.log(`[CAPTION PIPELINE] Processing ${clipCaptions.length} captions for clip '${clip.title}'`);
+                                       const formatted = segmentTranscriptIntoCaptions(clipCaptions);
 
                                        let preset = 'hormozi';
                                        if (clip.caption_style) {
@@ -656,44 +684,39 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                        return;
                                     }
 
-                                    const sourceClip = aiClips.find((c: any) => c.title === targetClip.title || c.start_time === targetClip.mediaStart);
-                                    let rawCaptions = sourceClip?.captions || initialCaptions;
+                                    const mStart = targetClip.mediaStart || 0;
+                                    const mEnd = targetClip.mediaEnd || (mStart + targetClip.duration);
+
+                                    const sourceClip = aiClips.find((c: any) => c.title === targetClip.title);
+                                    let rawCaptions = sourceClip?.captions;
+
+                                    if ((!rawCaptions || rawCaptions.length === 0) && initialCaptions && initialCaptions.length > 0) {
+                                       console.log(`[CAPTION PIPELINE] Slicing initialCaptions for target clip (${mStart}s - ${mEnd}s)`);
+                                       rawCaptions = initialCaptions
+                                          .filter((c: any) => {
+                                             const s = c.start ?? c.start_time ?? 0;
+                                             const e = c.end ?? c.end_time ?? 0;
+                                             return s >= mStart - 1.0 && e <= mEnd + 1.0;
+                                          })
+                                          .map((c: any) => {
+                                             const origStart = c.start ?? c.start_time ?? 0;
+                                             const origEnd = c.end ?? c.end_time ?? 0;
+                                             return {
+                                                ...c,
+                                                start: Math.max(0, origStart - mStart),
+                                                end: Math.max(0, origEnd - mStart),
+                                                words: c.words ? c.words.map((w: any) => ({
+                                                   ...w,
+                                                   start: Math.max(0, (w.start ?? origStart) - mStart),
+                                                   end: Math.max(0, (w.end ?? origEnd) - mStart),
+                                                })) : []
+                                             };
+                                          });
+                                    }
 
                                     if (!rawCaptions || rawCaptions.length === 0) {
-                                       // Request transcription via API if file exists
-                                       if (file) {
-                                          try {
-                                             setIsGeneratingCaptions(true);
-                                             console.log(`[CAPTION PIPELINE] Caption generation started via transcription API...`);
-                                             const fd = new FormData();
-                                             fd.append("video", file);
-                                             fd.append("start_time", (targetClip.mediaStart || 0).toString());
-                                             fd.append("end_time", (targetClip.mediaEnd || targetClip.duration).toString());
-
-                                             const res = await fetch("/api/video/transcribe", {
-                                                method: "POST",
-                                                headers: { "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}` },
-                                                body: fd
-                                             });
-
-                                             if (!res.ok) {
-                                                const errJson = await res.json().catch(() => ({}));
-                                                throw new Error(errJson.error || "Failed to generate captions");
-                                             }
-
-                                             const data = await res.json();
-                                             rawCaptions = data.captions || [];
-                                          } catch (err: any) {
-                                             console.error("[CAPTION PIPELINE] Caption generation failed:", err);
-                                             alert(`Caption generation failed: ${err.message}`);
-                                             return;
-                                          } finally {
-                                             setIsGeneratingCaptions(false);
-                                          }
-                                       } else {
-                                          alert("No caption data available for this video clip.");
-                                          return;
-                                       }
+                                       alert("No caption data available for this clip segment.");
+                                       return;
                                     }
 
                                     const formatted = segmentTranscriptIntoCaptions(rawCaptions);

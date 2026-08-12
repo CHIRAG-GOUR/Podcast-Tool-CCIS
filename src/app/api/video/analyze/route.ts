@@ -306,15 +306,27 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
     // Segment full video captions into 2-6 word chunks
     const formattedFullCaptions = segmentTranscriptIntoCaptions(rawCaptionsArray);
 
+    function parseTimeToSeconds(val: string | number | undefined | null): number {
+      if (typeof val === 'number') return val;
+      if (!val) return 0;
+      const str = String(val).trim();
+      if (str.includes(':')) {
+        const parts = str.split(':').map(Number);
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+      }
+      return parseFloat(str) || 0;
+    }
+
     // Slice captions per clip and format each clip's captions
     (parsedClips as ClipItem[]).forEach((clip) => {
-      const clipStart = typeof clip.start_time === 'number' ? clip.start_time : parseFloat(String(clip.start_time || 0)) || 0;
-      const clipEnd = typeof clip.end_time === 'number' ? clip.end_time : parseFloat(String(clip.end_time || 0)) || 0;
+      const clipStart = parseTimeToSeconds(clip.start_time);
+      const clipEnd = parseTimeToSeconds(clip.end_time);
       
       const rawClipPhrases: RawPhrase[] = [];
       rawCaptionsArray.forEach((phrase) => {
-        const pStart = typeof phrase.start !== 'undefined' ? Number(phrase.start) : (typeof phrase.start_time !== 'undefined' ? Number(phrase.start_time) : 0);
-        const pEnd = typeof phrase.end !== 'undefined' ? Number(phrase.end) : (typeof phrase.end_time !== 'undefined' ? Number(phrase.end_time) : 0);
+        const pStart = parseTimeToSeconds(phrase.start ?? phrase.start_time);
+        const pEnd = parseTimeToSeconds(phrase.end ?? phrase.end_time);
 
         if (pStart >= clipStart - 1.0 && pEnd <= clipEnd + 1.0) {
            const p: RawPhrase = JSON.parse(JSON.stringify(phrase));
@@ -323,8 +335,8 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
            if (p.words) {
                p.words = p.words.map((w) => ({
                    ...w,
-                   start: Math.max(0, (typeof w.start !== 'undefined' ? Number(w.start) : pStart) - clipStart),
-                   end: Math.max(0, (typeof w.end !== 'undefined' ? Number(w.end) : pEnd) - clipStart)
+                   start: Math.max(0, parseTimeToSeconds(w.start) - clipStart),
+                   end: Math.max(0, parseTimeToSeconds(w.end) - clipStart)
                }));
            }
            rawClipPhrases.push(p);
