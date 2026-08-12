@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, useDragControls } from 'framer-motion';
+import React, { useRef } from 'react';
+import { motion } from 'framer-motion';
 
 export interface Transform {
   x: number;
@@ -27,11 +27,11 @@ interface EditableCanvasNodeProps {
   zIndex?: number;
 }
 
-export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChange, children, isDraggable = true, isResizable = true, zIndex }: EditableCanvasNodeProps) {
+export function EditableCanvasNode({ transform, isSelected, onSelect, onChange, children, isDraggable = true, isResizable = true, zIndex }: EditableCanvasNodeProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
   
   // Dragging logic for the body
-  const handleDragEnd = (e: any, info: any) => {
+  const handleDragEnd = (_e: unknown, info: { offset: { x: number; y: number } }) => {
     // Info offset is relative to where drag started
     onChange({
       ...transform,
@@ -79,14 +79,10 @@ export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChan
   const handleResizeStart = (e: React.MouseEvent, type: string) => {
     e.stopPropagation();
     const startX = e.clientX;
-    const startY = e.clientY;
     const startScale = transform.scale;
-    const startW = transform.width;
-    const startH = transform.height;
     
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
       
       let newScale = startScale;
       // Simplistic proportional scale for corner handles
@@ -136,7 +132,7 @@ export function EditableCanvasNode({ id, transform, isSelected, onSelect, onChan
       drag={isDraggable}
       dragMomentum={false}
       onDragEnd={handleDragEnd}
-      onMouseDown={(e) => {
+      onMouseDown={() => {
         onSelect();
       }}
     >
