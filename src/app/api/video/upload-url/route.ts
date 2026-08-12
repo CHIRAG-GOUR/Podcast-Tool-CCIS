@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminStorage } from "@/lib/firebase-admin";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,38 +28,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Filename and content type required' }, { status: 400 });
     }
 
-    // Initialize Firebase Admin safely inside handler
-    const admin = require('firebase-admin');
+    const storage = getAdminStorage();
+    if (!storage) {
+      throw new Error("Firebase Admin Storage unavailable");
+    }
+
     const projectId = process.env.ADMIN_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || 'skillizee-products';
-    const clientEmail = process.env.ADMIN_FIREBASE_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL;
-    const rawPrivateKey = process.env.ADMIN_FIREBASE_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY;
     const storageBucket = process.env.ADMIN_FIREBASE_STORAGE_BUCKET
       || process.env.FIREBASE_STORAGE_BUCKET
       || `${projectId}.firebasestorage.app`;
 
-    if (!admin.apps.length) {
-      if (projectId && clientEmail && rawPrivateKey) {
-        let privateKey = rawPrivateKey;
-        if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || 
-            (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
-          privateKey = privateKey.slice(1, -1);
-        }
-        privateKey = privateKey.replace(/\\n/g, '\n');
-
-        admin.initializeApp({
-          credential: admin.credential.cert({
-            projectId,
-            clientEmail,
-            privateKey,
-          }),
-          storageBucket,
-        });
-      } else {
-        admin.initializeApp({ storageBucket });
-      }
-    }
-
-    const storage = admin.storage();
     const uniqueFilename = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const fileKey = `uploads/${uniqueFilename}`;
     const file = storage.bucket(storageBucket).file(fileKey);
