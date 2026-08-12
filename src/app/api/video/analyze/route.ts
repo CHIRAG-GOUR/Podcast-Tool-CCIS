@@ -189,27 +189,8 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
 
 
     
-    let captionsFileManager = analyzeFileManager;
-    let captionsGenAI = analyzeGenAI;
-    const sameKey = (analyzeApiKey === captionsApiKey);
-    if (!sameKey) {
-      captionsFileManager = new GoogleAIFileManager(captionsApiKey);
-      captionsGenAI = new GoogleGenerativeAI(captionsApiKey);
-    }
-
-    let captionsUpload = analyzeUpload;
-    if (!sameKey) {
-      console.log("Uploading file to Gemini (Captions)...");
-      captionsUpload = await captionsFileManager.uploadFile(finalUploadPath, {
-        mimeType: finalMimeType || 'video/mp4',
-        displayName: (file ? file.name : fileKey || 'video') + "_captions",
-      });
-      uploadedCaptionsFile = captionsUpload.file.name;
-      console.log(`Uploaded to Gemini (Captions): ${captionsUpload.file.name}`);
-      await waitForFile(captionsFileManager, captionsUpload.file.name);
-    }
-
-    const captionsModel = captionsGenAI.getGenerativeModel({
+    // Dispatch both Gemini calls in parallel using the single uploaded file
+    const captionsModel = analyzeGenAI.getGenerativeModel({
       model: "gemini-2.5-flash",
       generationConfig: { responseMimeType: "application/json" }
     });
@@ -227,8 +208,8 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
     const captionsPromise = captionsModel.generateContent([
       {
         fileData: {
-          mimeType: captionsUpload.file.mimeType,
-          fileUri: captionsUpload.file.uri
+          mimeType: analyzeUpload.file.mimeType,
+          fileUri: analyzeUpload.file.uri
         }
       },
       { text: captionsPrompt }
@@ -326,7 +307,7 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
       return parseFloat(str) || 0;
     }
 
-    // Slice captions per clip and format each clip's captions
+    // Slice captions per clip using mathematical interval overlap (pEnd >= clipStart && pStart <= clipEnd)
     (parsedClips as ClipItem[]).forEach((clip) => {
       const clipStart = parseTimeToSeconds(clip.start_time);
       const clipEnd = parseTimeToSeconds(clip.end_time);
@@ -336,11 +317,12 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
         const pStart = parseTimeToSeconds(phrase.start ?? phrase.start_time);
         const pEnd = parseTimeToSeconds(phrase.end ?? phrase.end_time);
 
-        if (pStart >= clipStart - 1.0 && pEnd <= clipEnd + 1.0) {
+        // Match any phrase overlapping clip window [clipStart, clipEnd]
+        if (pEnd >= clipStart && pStart <= clipEnd) {
            const p: RawPhrase = JSON.parse(JSON.stringify(phrase));
            p.start = Math.max(0, pStart - clipStart);
            p.end = Math.max(0, pEnd - clipStart);
-           if (p.words) {
+           if (p.words && p.words.length > 0) {
                p.words = p.words.map((w) => ({
                    ...w,
                    start: Math.max(0, parseTimeToSeconds(w.start) - clipStart),
