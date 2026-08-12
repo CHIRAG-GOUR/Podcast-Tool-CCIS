@@ -14,10 +14,60 @@ interface ProcessingViewProps {
 
 const STEPS = [
   "Extracting Audio (Browser)",
-  "Uploading to Server",
+  "Uploading to Cloud",
   "AI Analysis & Transcription",
   "Finalizing Project"
 ]
+
+/**
+ * Attempts to upload a file to Cloud Storage using a signed resumable URL.
+ * Returns the fileKey on success, null on failure.
+ */
+async function uploadToCloudStorage(fileToUpload: File | Blob, filename: string, contentType: string): Promise<string | null> {
+  try {
+    const urlRes = await fetch("/api/video/upload-url", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}`
+      },
+      body: JSON.stringify({ filename, contentType })
+    });
+
+    if (!urlRes.ok) return null;
+
+    const urlData = await urlRes.json().catch(() => ({}));
+    if (!urlData.url || !urlData.key) return null;
+
+    const initRes = await fetch(urlData.url, {
+      method: "POST",
+      headers: {
+        "x-goog-resumable": "start",
+        "Content-Type": contentType
+      }
+    });
+
+    if (!initRes.ok) return null;
+
+    const sessionUrl = initRes.headers.get("location");
+    if (!sessionUrl) return null;
+
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", sessionUrl, true);
+      xhr.setRequestHeader("Content-Type", contentType);
+      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve(xhr.response) : reject(new Error(`Upload status ${xhr.status}`));
+      xhr.onerror = () => reject(new Error("Network error during upload"));
+      xhr.onabort = () => reject(new Error("Upload aborted"));
+      xhr.send(fileToUpload);
+    });
+
+    return urlData.key;
+  } catch (err) {
+    console.warn("[uploadToCloudStorage] Failed:", err);
+    return null;
+  }
+}
 
 export function ProcessingView({ file, context, onComplete, onCancel }: ProcessingViewProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
@@ -35,8 +85,9 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
         setCurrentStepIndex(0);
         setStatusMessage("Extracting audio track in browser...");
 
-        let fileToUpload: File = file;
-        let usedClientExtraction = false;
+        let extractedAudioBlob: Blob | null = null;
+        let extractedFileName = "";
+        let extractedMimeType = "";
 
         try {
           const extraction = await extractAudioFromVideo(file, (_pct, status) => {
@@ -44,80 +95,52 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
           });
 
           if (extraction) {
-            fileToUpload = new File([extraction.audioBlob], extraction.fileName, {
-              type: extraction.mimeType,
-            });
-            usedClientExtraction = true;
+            extractedAudioBlob = extraction.audioBlob;
+            extractedFileName = extraction.fileName;
+            extractedMimeType = extraction.mimeType;
             setCompressionStats(
               `⚡ ${extraction.originalSizeMB.toFixed(0)} MB → ${extraction.extractedSizeMB.toFixed(1)} MB (${extraction.compressionRatioPct}% smaller)`
             );
             console.log("[ProcessingView] Client audio extraction succeeded:", extraction);
           }
         } catch (extractErr) {
-          console.warn("[ProcessingView] Client extraction failed, using original video:", extractErr);
+          console.warn("[ProcessingView] Client extraction failed:", extractErr);
         }
 
-        if (!usedClientExtraction) {
-          setStatusMessage("Browser extraction unavailable, uploading full video...");
-        }
-
-        // ─── STEP 1: Upload ───
+        // ─── STEP 1: Upload to Cloud Storage ───
         setCurrentStepIndex(1);
-        setStatusMessage(usedClientExtraction
-          ? "Uploading lightweight audio payload..."
-          : "Uploading video file...");
-
         let fileKey: string | null = null;
 
-        // Attempt Cloud Storage signed URL upload (resumable for large files)
-        try {
-          const urlRes = await fetch("/api/video/upload-url", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}`
-            },
-            body: JSON.stringify({ filename: fileToUpload.name, contentType: fileToUpload.type })
-          });
+        // Strategy: Try extracted audio first → fallback to original video → last resort direct upload
+        if (extractedAudioBlob) {
+          setStatusMessage("Uploading optimized audio to cloud...");
+          fileKey = await uploadToCloudStorage(extractedAudioBlob, extractedFileName, extractedMimeType);
 
-          if (urlRes.ok) {
-            const urlData = await urlRes.json().catch(() => ({}));
-            if (urlData.url && urlData.key) {
-              const initRes = await fetch(urlData.url, {
-                method: "POST",
-                headers: {
-                  "x-goog-resumable": "start",
-                  "Content-Type": fileToUpload.type
-                }
-              });
-
-              if (initRes.ok) {
-                const sessionUrl = initRes.headers.get("location");
-                if (sessionUrl) {
-                  await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    xhr.open("PUT", sessionUrl, true);
-                    xhr.setRequestHeader("Content-Type", fileToUpload.type);
-                    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve(xhr.response) : reject(new Error(`Status ${xhr.status}`));
-                    xhr.onerror = () => reject(new Error("Network error"));
-                    xhr.onabort = () => reject(new Error("Aborted"));
-                    xhr.send(fileToUpload);
-                  });
-                  fileKey = urlData.key;
-                  console.log("[ProcessingView] Cloud storage upload complete. fileKey:", fileKey);
-                }
-              }
-            }
+          if (fileKey) {
+            console.log("[ProcessingView] Audio uploaded to cloud storage. fileKey:", fileKey);
+          } else {
+            console.warn("[ProcessingView] Audio cloud upload failed. Trying original video...");
           }
-        } catch (cloudErr) {
-          console.warn("[ProcessingView] Cloud upload failed, falling back to direct upload:", cloudErr);
         }
 
-        // ─── STEP 2: Server Analysis (long-running) ───
+        // If audio upload failed or extraction didn't happen, upload original video
+        if (!fileKey) {
+          setStatusMessage("Uploading video to cloud storage...");
+          setCompressionStats(null); // clear stats since we're not using extracted audio
+          fileKey = await uploadToCloudStorage(file, file.name, file.type);
+
+          if (fileKey) {
+            console.log("[ProcessingView] Original video uploaded to cloud storage. fileKey:", fileKey);
+          } else {
+            console.warn("[ProcessingView] Cloud storage unavailable. Trying direct upload...");
+          }
+        }
+
+        // ─── STEP 2: Server Analysis ───
         setCurrentStepIndex(2);
         setStatusMessage("AI is analyzing speech, finding viral hooks & generating captions...");
 
-        // Gentle step pulse — just toggles status text while waiting
+        // Gentle status text cycling during the long AI step
         const statusMessages = [
           "AI is analyzing speech, finding viral hooks & generating captions...",
           "Transcribing speech & discovering high-retention moments...",
@@ -129,14 +152,14 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
           setStatusMessage(statusMessages[msgIndex]);
         }, 12000);
 
-        // Build FormData — use "audio" key for extracted audio, "video" key for fallback
+        // Build FormData
         const formData = new FormData();
         if (fileKey) {
+          // Preferred path: just send the key, server downloads from Cloud Storage
           formData.append("fileKey", fileKey);
-        } else if (usedClientExtraction) {
-          formData.append("audio", fileToUpload);
         } else {
-          formData.append("video", fileToUpload);
+          // Last resort: direct upload (only works for small files <4.5MB on Vercel)
+          formData.append("video", file);
         }
         if (context) formData.append("context", context);
 
@@ -161,7 +184,7 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
 
         // ─── STEP 3: Complete ───
         if (intervalTimer) clearInterval(intervalTimer);
-        setCurrentStepIndex(STEPS.length); // mark all steps complete
+        setCurrentStepIndex(STEPS.length);
         setStatusMessage("Complete! Opening Studio Timeline...");
 
         setTimeout(() => {
