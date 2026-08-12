@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useState, useRef, useEffect } from "react"
@@ -62,7 +63,17 @@ const CopyButton = ({ text }: { text: string }) => {
 };
 
 
-export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initialCaptions, initialCuts, onBack }: any) {
+interface StudioViewProps {
+   file?: File | null;
+   fileKey?: string | null;
+   fileUrl?: string | null;
+   clips?: any[];
+   initialCaptions?: any[];
+   initialCuts?: any[];
+   onBack?: () => void;
+}
+
+export function StudioView({ file, fileKey, fileUrl, clips: initialClips = [], initialCaptions = [], initialCuts = [], onBack }: StudioViewProps) {
    const [isPlaying, setIsPlaying] = useState(false)
    const [currentTime, setCurrentTime] = useState(0)
    const [videoDuration, setVideoDuration] = useState(0)
@@ -95,7 +106,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
    ])
 
    // AI Clips & Project Clips
-   const [aiClips, setAiClips] = useState(initialClips.length > 0 ? initialClips : [])
+   const [aiClips] = useState<any[]>(initialClips)
    const [projectClips, setProjectClips] = useState<any[]>(() => {
       const defaultClips: any[] = [{ id: 'c1', trackId: 'v1', type: 'video', start: 0, end: 15, duration: 15, title: 'Podcast Source' }];
 
@@ -118,7 +129,8 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
       }
 
       if (initialCuts && initialCuts.length > 0) {
-         initialCuts.forEach((cut: any, index: number) => {
+         initialCuts.forEach((cutItem: unknown, index: number) => {
+            const cut = cutItem as { start: number; end: number; speaker?: string; cx_percent?: number; crop_y?: number };
             if (cut.start < 15) {
                defaultClips.push({
                   id: 'cut_' + index,
@@ -162,11 +174,11 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
 
    const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files?.length) return;
-      const newMedia = Array.from(e.target.files).map(file => ({
+      const newMedia = Array.from(e.target.files).map(mediaFile => ({
          id: 'media_' + Date.now() + Math.random(),
-         name: file.name,
-         url: URL.createObjectURL(file),
-         type: file.type.startsWith('image') ? 'image' : file.type.startsWith('audio') ? 'audio' : 'video' as any
+         name: mediaFile.name,
+         url: URL.createObjectURL(mediaFile),
+         type: (mediaFile.type.startsWith('image') ? 'image' : mediaFile.type.startsWith('audio') ? 'audio' : 'video') as 'audio' | 'image' | 'video'
       }));
       setUploadedMedia(p => [...p, ...newMedia]);
    };

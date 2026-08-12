@@ -10,6 +10,9 @@ export interface Transform {
   height: number;
   scale: number;
   rotation: number;
+  scaleY?: number;
+  opacity?: number;
+  zIndex?: number;
 }
 
 interface EditableCanvasNodeProps {
