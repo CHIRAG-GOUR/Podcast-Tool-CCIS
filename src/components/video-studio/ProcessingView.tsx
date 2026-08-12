@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CheckCircle2, Circle, Loader2, Sparkles, Zap } from "lucide-react"
+import { CheckCircle2, Circle, Loader2, Sparkles, Zap, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { extractAudioFromVideo } from "@/lib/client-audio-extractor"
 
@@ -13,9 +13,9 @@ interface ProcessingViewProps {
 }
 
 const STEPS = [
-  "Extracting Audio (Browser)",
-  "Uploading to Cloud",
-  "AI Analysis & Transcription",
+  "Upload Complete",
+  "Analyzing Video Content",
+  "Generating Smart Clips",
   "Finalizing Project"
 ]
 
@@ -23,7 +23,12 @@ const STEPS = [
  * Attempts to upload a file to Cloud Storage using a signed resumable URL.
  * Returns the fileKey on success, null on failure.
  */
-async function uploadToCloudStorage(fileToUpload: File | Blob, filename: string, contentType: string): Promise<string | null> {
+async function uploadToCloudStorage(
+  fileToUpload: File | Blob,
+  filename: string,
+  contentType: string,
+  onUploadProgress?: (progressPct: number) => void
+): Promise<string | null> {
   try {
     const urlRes = await fetch("/api/video/upload-url", {
       method: "POST",
@@ -56,6 +61,16 @@ async function uploadToCloudStorage(fileToUpload: File | Blob, filename: string,
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", sessionUrl, true);
       xhr.setRequestHeader("Content-Type", contentType);
+
+      if (xhr.upload && onUploadProgress) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const uploadPct = Math.round((e.loaded / e.total) * 100);
+            onUploadProgress(uploadPct);
+          }
+        };
+      }
+
       xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve(xhr.response) : reject(new Error(`Upload status ${xhr.status}`));
       xhr.onerror = () => reject(new Error("Network error during upload"));
       xhr.onabort = () => reject(new Error("Upload aborted"));
@@ -71,18 +86,22 @@ async function uploadToCloudStorage(fileToUpload: File | Blob, filename: string,
 
 export function ProcessingView({ file, context, onComplete, onCancel }: ProcessingViewProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
-  const [statusMessage, setStatusMessage] = useState<string>("Initializing...")
+  const [progressPercent, setProgressPercent] = useState<number>(0)
+  const [statusMessage, setStatusMessage] = useState<string>("Initializing processing engine...")
   const [compressionStats, setCompressionStats] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let intervalTimer: NodeJS.Timeout | null = null;
+    let progressTimer: NodeJS.Timeout | null = null;
+    let statusTimer: NodeJS.Timeout | null = null;
+
     const processVideo = async () => {
       try {
         if (!file) throw new Error("No file selected");
 
-        // ─── STEP 0: Client-Side Audio Extraction ───
+        // ─── STEP 1: Upload Complete (0% -> 25%) ───
         setCurrentStepIndex(0);
+        setProgressPercent(2);
         setStatusMessage("Extracting audio track in browser...");
 
         let extractedAudioBlob: Blob | null = null;
@@ -90,8 +109,10 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
         let extractedMimeType = "";
 
         try {
-          const extraction = await extractAudioFromVideo(file, (_pct, status) => {
+          const extraction = await extractAudioFromVideo(file, (extractPct, status) => {
             setStatusMessage(status);
+            // Extraction accounts for 0% to 10% of total progress
+            setProgressPercent(Math.min(10, Math.round(extractPct * 0.1)));
           });
 
           if (extraction) {
@@ -107,58 +128,67 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
           console.warn("[ProcessingView] Client extraction failed:", extractErr);
         }
 
-        // ─── STEP 1: Upload to Cloud Storage ───
-        setCurrentStepIndex(1);
         let fileKey: string | null = null;
 
-        // Strategy: Try extracted audio first → fallback to original video → last resort direct upload
+        // Upload extracted audio or fallback video
         if (extractedAudioBlob) {
-          setStatusMessage("Uploading optimized audio to cloud...");
-          fileKey = await uploadToCloudStorage(extractedAudioBlob, extractedFileName, extractedMimeType);
-
-          if (fileKey) {
-            console.log("[ProcessingView] Audio uploaded to cloud storage. fileKey:", fileKey);
-          } else {
-            console.warn("[ProcessingView] Audio cloud upload failed. Trying original video...");
-          }
+          setStatusMessage("Uploading compressed payload to cloud storage...");
+          fileKey = await uploadToCloudStorage(
+            extractedAudioBlob,
+            extractedFileName,
+            extractedMimeType,
+            (uploadPct) => {
+              // Upload accounts for 10% to 25% of total progress
+              setProgressPercent(10 + Math.round(uploadPct * 0.15));
+            }
+          );
         }
 
-        // If audio upload failed or extraction didn't happen, upload original video
         if (!fileKey) {
-          setStatusMessage("Uploading video to cloud storage...");
-          setCompressionStats(null); // clear stats since we're not using extracted audio
-          fileKey = await uploadToCloudStorage(file, file.name, file.type);
-
-          if (fileKey) {
-            console.log("[ProcessingView] Original video uploaded to cloud storage. fileKey:", fileKey);
-          } else {
-            console.warn("[ProcessingView] Cloud storage unavailable. Trying direct upload...");
-          }
+          setStatusMessage("Uploading full video file to cloud storage...");
+          setCompressionStats(null);
+          fileKey = await uploadToCloudStorage(
+            file,
+            file.name,
+            file.type,
+            (uploadPct) => {
+              setProgressPercent(Math.min(25, Math.round(uploadPct * 0.25)));
+            }
+          );
         }
 
-        // ─── STEP 2: Server Analysis ───
-        setCurrentStepIndex(2);
-        setStatusMessage("AI is analyzing speech, finding viral hooks & generating captions...");
+        // Complete Step 1
+        setProgressPercent(25);
+        setStatusMessage("Upload complete! Starting AI analysis...");
 
-        // Gentle status text cycling during the long AI step
-        const statusMessages = [
-          "AI is analyzing speech, finding viral hooks & generating captions...",
-          "Transcribing speech & discovering high-retention moments...",
-          "Almost there — generating clip metadata & captions...",
+        // ─── STEP 2: Analyzing Video Content (25% -> 60%) ───
+        setCurrentStepIndex(1);
+
+        // Smooth simulated progress during AI Gemini analysis
+        progressTimer = setInterval(() => {
+          setProgressPercent((prev) => {
+            if (prev < 58) return prev + 1;
+            return prev;
+          });
+        }, 800);
+
+        const statusMessagesStep2 = [
+          "Analyzing video speech & transcript...",
+          "Detecting speakers & audio cadence...",
+          "Identifying high-retention conversational hooks...",
+          "Evaluating viral potential & topic score..."
         ];
-        let msgIndex = 0;
-        intervalTimer = setInterval(() => {
-          msgIndex = (msgIndex + 1) % statusMessages.length;
-          setStatusMessage(statusMessages[msgIndex]);
-        }, 12000);
+        let statusIdx = 0;
+        statusTimer = setInterval(() => {
+          statusIdx = (statusIdx + 1) % statusMessagesStep2.length;
+          setStatusMessage(statusMessagesStep2[statusIdx]);
+        }, 6000);
 
-        // Build FormData
+        // Send payload to backend
         const formData = new FormData();
         if (fileKey) {
-          // Preferred path: just send the key, server downloads from Cloud Storage
           formData.append("fileKey", fileKey);
         } else {
-          // Last resort: direct upload (only works for small files <4.5MB on Vercel)
           formData.append("video", file);
         }
         if (context) formData.append("context", context);
@@ -182,27 +212,65 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
 
         const data = await res.json();
 
-        // ─── STEP 3: Complete ───
-        if (intervalTimer) clearInterval(intervalTimer);
+        if (progressTimer) clearInterval(progressTimer);
+        if (statusTimer) clearInterval(statusTimer);
+
+        // Complete Step 2
+        setProgressPercent(60);
+
+        // ─── STEP 3: Generating Smart Clips (60% -> 90%) ───
+        setCurrentStepIndex(2);
+        setStatusMessage("Generating smart clips, captions & portrait cuts...");
+
+        progressTimer = setInterval(() => {
+          setProgressPercent((prev) => {
+            if (prev < 88) return prev + 1;
+            return prev;
+          });
+        }, 150);
+
+        await new Promise((r) => setTimeout(r, 1200));
+
+        if (progressTimer) clearInterval(progressTimer);
+
+        // Complete Step 3
+        setProgressPercent(90);
+
+        // ─── STEP 4: Finalizing Project (90% -> 100%) ───
+        setCurrentStepIndex(3);
+        setStatusMessage("Finalizing project & loading Studio Timeline...");
+
+        progressTimer = setInterval(() => {
+          setProgressPercent((prev) => {
+            if (prev < 100) return prev + 1;
+            return 100;
+          });
+        }, 50);
+
+        await new Promise((r) => setTimeout(r, 600));
+
+        if (progressTimer) clearInterval(progressTimer);
+        setProgressPercent(100);
         setCurrentStepIndex(STEPS.length);
-        setStatusMessage("Complete! Opening Studio Timeline...");
 
         setTimeout(() => {
           onComplete(data);
-        }, 800);
+        }, 500);
 
       } catch (err: unknown) {
         const errObj = err as { message?: string };
         console.error("Video processing error:", err);
         setError(errObj.message || "Failed to analyze video. Please try again.");
-        if (intervalTimer) clearInterval(intervalTimer);
+        if (progressTimer) clearInterval(progressTimer);
+        if (statusTimer) clearInterval(statusTimer);
       }
     };
 
     processVideo();
 
     return () => {
-      if (intervalTimer) clearInterval(intervalTimer);
+      if (progressTimer) clearInterval(progressTimer);
+      if (statusTimer) clearInterval(statusTimer);
     };
   }, [file, context, onComplete]);
 
@@ -211,21 +279,19 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
       {/* Decorative background blur */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
-      <div className="text-center mb-10 relative z-10">
-        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+      <div className="text-center mb-8 relative z-10">
+        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Sparkles className="w-8 h-8 text-primary animate-pulse" />
         </div>
         {error ? (
-          <h2 className="text-3xl font-bold mb-3 text-red-600">Processing Failed</h2>
+          <h2 className="text-3xl font-bold mb-2 text-red-600">Processing Failed</h2>
         ) : (
-          <h2 className="text-3xl font-bold mb-3 text-gray-900 flex items-center justify-center gap-2">
+          <h2 className="text-3xl font-bold mb-2 text-gray-900 flex items-center justify-center gap-2">
             AI Engine Processing <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
           </h2>
         )}
-        <p className={error ? "text-red-500 font-medium" : "text-gray-500"}>
-          {error
-            ? error
-            : statusMessage}
+        <p className={error ? "text-red-500 font-medium" : "text-gray-500 text-sm"}>
+          {error ? error : statusMessage}
         </p>
 
         {compressionStats && !error && (
@@ -235,10 +301,32 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
         )}
       </div>
 
-      <div className="space-y-6 relative z-10 pl-4 md:pl-12">
+      {/* Dynamic Progress Bar Component */}
+      {!error && (
+        <div className="mb-8 relative z-10 bg-gray-50 border border-gray-100 rounded-2xl p-4 shadow-inner">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Overall Progress
+            </span>
+            <span className="text-sm font-bold font-mono text-primary">
+              {progressPercent}%
+            </span>
+          </div>
+
+          <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden p-0.5">
+            <div
+              className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 rounded-full transition-all duration-300 ease-out shadow-sm"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 4 Steps Indicator List */}
+      <div className="space-y-5 relative z-10 pl-4 md:pl-8">
         {STEPS.map((step, index) => {
-          const isCompleted = index < currentStepIndex
-          const isCurrent = index === currentStepIndex
+          const isCompleted = index < currentStepIndex || progressPercent === 100
+          const isCurrent = index === currentStepIndex && progressPercent < 100
 
           return (
             <div key={step} className="flex items-center gap-4 relative">
@@ -246,30 +334,45 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
               {index !== STEPS.length - 1 && (
                 <div
                   className={cn(
-                    "absolute left-[11px] top-[30px] bottom-[-24px] w-[2px]",
-                    isCompleted ? "bg-primary" : "bg-border"
+                    "absolute left-[11px] top-[30px] bottom-[-20px] w-[2px] transition-colors duration-500",
+                    isCompleted ? "bg-primary" : "bg-gray-200"
                   )}
                 />
               )}
 
               <div className="relative z-10">
                 {isCompleted ? (
-                  <CheckCircle2 className="w-6 h-6 text-primary fill-primary/10" />
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600 fill-emerald-100" />
                 ) : isCurrent ? (
-                  <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                  <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
                 ) : (
                   <Circle className="w-6 h-6 text-gray-300" />
                 )}
               </div>
 
-              <span
-                className={cn(
-                  "font-medium md:text-lg transition-colors duration-300",
-                  isCompleted ? "text-gray-900" : isCurrent ? "text-blue-600 font-semibold" : "text-gray-400"
-                )}
-              >
-                {step}
-              </span>
+              <div className="flex-1 flex justify-between items-center">
+                <span
+                  className={cn(
+                    "font-medium text-base md:text-lg transition-colors duration-300",
+                    isCompleted ? "text-gray-900 font-semibold" : isCurrent ? "text-blue-600 font-bold" : "text-gray-400"
+                  )}
+                >
+                  {step}
+                </span>
+
+                <span
+                  className={cn(
+                    "text-xs font-mono px-2.5 py-0.5 rounded-full border transition-all duration-300",
+                    isCompleted
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 font-medium"
+                      : isCurrent
+                      ? "bg-blue-50 text-blue-700 border-blue-200 font-semibold animate-pulse"
+                      : "bg-gray-50 text-gray-400 border-gray-200"
+                  )}
+                >
+                  {isCompleted ? "100%" : isCurrent ? `${progressPercent}%` : "0%"}
+                </span>
+              </div>
             </div>
           )
         })}
