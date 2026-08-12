@@ -234,19 +234,27 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
       { text: captionsPrompt }
     ]);
 
-    // Run auto_framer.py to get facial recognition camera cuts
+    // Run auto_framer.py to get facial recognition camera cuts with a strict 3-second timeout
     const cutsJsonPath = join(tmpdir(), `${uuidv4()}-cuts.json`);
     const pythonScript = join(process.cwd(), 'scripts', 'auto_framer.py');
-    const framerPromise = execPromise(`python "${pythonScript}" "${tempFilePath}" "${cutsJsonPath}"`)
-      .then(async () => {
-        const cutsData = await readFile(cutsJsonPath, 'utf8');
-        await unlink(cutsJsonPath).catch(() => { });
-        return JSON.parse(cutsData).cuts || [];
-      })
-      .catch((err) => {
-        console.error("Auto framer failed:", err);
-        return [];
-      });
+    const framerTimeout = new Promise<any[]>((resolve) => 
+      setTimeout(() => {
+        console.log("[Pipeline] Auto framer timed out (3s limit), proceeding with Gemini response.");
+        resolve([]);
+      }, 3000)
+    );
+    const framerPromise = Promise.race([
+      execPromise(`python "${pythonScript}" "${tempFilePath}" "${cutsJsonPath}"`)
+        .then(async () => {
+          const cutsData = await readFile(cutsJsonPath, 'utf8');
+          await unlink(cutsJsonPath).catch(() => { });
+          return JSON.parse(cutsData).cuts || [];
+        }),
+      framerTimeout
+    ]).catch((err) => {
+      console.warn("[Pipeline] Auto framer skipped:", err?.message || err);
+      return [];
+    });
 
     const [result, captionsResult, parsedCuts] = await Promise.all([resultPromise, captionsPromise, framerPromise]);
 

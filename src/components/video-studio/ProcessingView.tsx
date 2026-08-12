@@ -164,9 +164,9 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
 
         let aiPct = 0;
         aiIntervalTimer = setInterval(() => {
-          aiPct = Math.min(95, aiPct + 1);
+          aiPct = Math.min(99, aiPct + (aiPct < 85 ? 4 : 1));
           setStepProgress((prev) => ({ ...prev, 2: aiPct }));
-        }, 350);
+        }, 200);
 
         const formData = new FormData();
         if (fileKey) {
