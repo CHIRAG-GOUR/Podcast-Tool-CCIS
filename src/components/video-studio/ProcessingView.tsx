@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CheckCircle2, Circle, Loader2, Sparkles, Zap } from "lucide-react"
+import { CheckCircle2, Circle, Loader2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { extractAudioFromVideo } from "@/lib/client-audio-extractor"
 
@@ -20,10 +20,14 @@ const STEPS = [
 ]
 
 /**
- * Attempts to upload a file to Cloud Storage using a signed resumable URL.
- * Returns the fileKey on success, null on failure.
+ * Uploads file/blob to Cloud Storage via resumable signed URL with progress reporting.
  */
-async function uploadToCloudStorage(fileToUpload: File | Blob, filename: string, contentType: string): Promise<string | null> {
+async function uploadToCloudStorage(
+  fileToUpload: File | Blob,
+  filename: string,
+  contentType: string,
+  onProgress?: (pct: number) => void
+): Promise<string | null> {
   try {
     const urlRes = await fetch("/api/video/upload-url", {
       method: "POST",
@@ -56,6 +60,16 @@ async function uploadToCloudStorage(fileToUpload: File | Blob, filename: string,
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", sessionUrl, true);
       xhr.setRequestHeader("Content-Type", contentType);
+
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && e.total > 0) {
+            const pct = Math.min(100, Math.max(0, Math.round((e.loaded / e.total) * 100)));
+            onProgress(pct);
+          }
+        };
+      }
+
       xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve(xhr.response) : reject(new Error(`Upload status ${xhr.status}`));
       xhr.onerror = () => reject(new Error("Network error during upload"));
       xhr.onabort = () => reject(new Error("Upload aborted"));
@@ -71,12 +85,14 @@ async function uploadToCloudStorage(fileToUpload: File | Blob, filename: string,
 
 export function ProcessingView({ file, context, onComplete, onCancel }: ProcessingViewProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [stepProgress, setStepProgress] = useState<{ [key: number]: number }>({ 0: 0, 1: 0, 2: 0, 3: 0 })
   const [statusMessage, setStatusMessage] = useState<string>("Initializing...")
   const [compressionStats, setCompressionStats] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let intervalTimer: NodeJS.Timeout | null = null;
+    let aiIntervalTimer: NodeJS.Timeout | null = null;
+
     const processVideo = async () => {
       try {
         if (!file) throw new Error("No file selected");
@@ -84,13 +100,15 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
         // ─── STEP 0: Client-Side Audio Extraction ───
         setCurrentStepIndex(0);
         setStatusMessage("Extracting audio track in browser...");
+        setStepProgress({ 0: 0, 1: 0, 2: 0, 3: 0 });
 
         let extractedAudioBlob: Blob | null = null;
         let extractedFileName = "";
         let extractedMimeType = "";
 
         try {
-          const extraction = await extractAudioFromVideo(file, (_pct, status) => {
+          const extraction = await extractAudioFromVideo(file, (pct, status) => {
+            setStepProgress((prev) => ({ ...prev, 0: Math.min(100, pct) }));
             setStatusMessage(status);
           });
 
@@ -99,66 +117,61 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
             extractedFileName = extraction.fileName;
             extractedMimeType = extraction.mimeType;
             setCompressionStats(
-              `⚡ ${extraction.originalSizeMB.toFixed(0)} MB → ${extraction.extractedSizeMB.toFixed(1)} MB (${extraction.compressionRatioPct}% smaller)`
+              `Payload optimized: ${extraction.originalSizeMB.toFixed(0)} MB -> ${extraction.extractedSizeMB.toFixed(1)} MB (${extraction.compressionRatioPct}% reduction)`
             );
-            console.log("[ProcessingView] Client audio extraction succeeded:", extraction);
+            console.log("[ProcessingView] Client audio extraction complete:", extraction);
           }
         } catch (extractErr) {
           console.warn("[ProcessingView] Client extraction failed:", extractErr);
         }
 
+        setStepProgress((prev) => ({ ...prev, 0: 100 }));
+
         // ─── STEP 1: Upload to Cloud Storage ───
         setCurrentStepIndex(1);
         let fileKey: string | null = null;
 
-        // Strategy: Try extracted audio first → fallback to original video → last resort direct upload
         if (extractedAudioBlob) {
-          setStatusMessage("Uploading optimized audio to cloud...");
-          fileKey = await uploadToCloudStorage(extractedAudioBlob, extractedFileName, extractedMimeType);
-
-          if (fileKey) {
-            console.log("[ProcessingView] Audio uploaded to cloud storage. fileKey:", fileKey);
-          } else {
-            console.warn("[ProcessingView] Audio cloud upload failed. Trying original video...");
-          }
+          setStatusMessage("Uploading optimized audio payload to cloud...");
+          fileKey = await uploadToCloudStorage(
+            extractedAudioBlob,
+            extractedFileName,
+            extractedMimeType,
+            (pct) => {
+              setStepProgress((prev) => ({ ...prev, 1: pct }));
+            }
+          );
         }
 
-        // If audio upload failed or extraction didn't happen, upload original video
         if (!fileKey) {
-          setStatusMessage("Uploading video to cloud storage...");
-          setCompressionStats(null); // clear stats since we're not using extracted audio
-          fileKey = await uploadToCloudStorage(file, file.name, file.type);
-
-          if (fileKey) {
-            console.log("[ProcessingView] Original video uploaded to cloud storage. fileKey:", fileKey);
-          } else {
-            console.warn("[ProcessingView] Cloud storage unavailable. Trying direct upload...");
-          }
+          setStatusMessage("Uploading video file to cloud storage...");
+          setCompressionStats(null);
+          fileKey = await uploadToCloudStorage(
+            file,
+            file.name,
+            file.type,
+            (pct) => {
+              setStepProgress((prev) => ({ ...prev, 1: pct }));
+            }
+          );
         }
 
-        // ─── STEP 2: Server Analysis ───
+        setStepProgress((prev) => ({ ...prev, 1: 100 }));
+
+        // ─── STEP 2: Server AI Analysis ───
         setCurrentStepIndex(2);
-        setStatusMessage("AI is analyzing speech, finding viral hooks & generating captions...");
+        setStatusMessage("AI is analyzing speech, finding viral hooks and generating captions...");
 
-        // Gentle status text cycling during the long AI step
-        const statusMessages = [
-          "AI is analyzing speech, finding viral hooks & generating captions...",
-          "Transcribing speech & discovering high-retention moments...",
-          "Almost there — generating clip metadata & captions...",
-        ];
-        let msgIndex = 0;
-        intervalTimer = setInterval(() => {
-          msgIndex = (msgIndex + 1) % statusMessages.length;
-          setStatusMessage(statusMessages[msgIndex]);
-        }, 12000);
+        let aiPct = 0;
+        aiIntervalTimer = setInterval(() => {
+          aiPct = Math.min(95, aiPct + 1);
+          setStepProgress((prev) => ({ ...prev, 2: aiPct }));
+        }, 350);
 
-        // Build FormData
         const formData = new FormData();
         if (fileKey) {
-          // Preferred path: just send the key, server downloads from Cloud Storage
           formData.append("fileKey", fileKey);
         } else {
-          // Last resort: direct upload (only works for small files <4.5MB on Vercel)
           formData.append("video", file);
         }
         if (context) formData.append("context", context);
@@ -182,94 +195,149 @@ export function ProcessingView({ file, context, onComplete, onCancel }: Processi
 
         const data = await res.json();
 
-        // ─── STEP 3: Complete ───
-        if (intervalTimer) clearInterval(intervalTimer);
-        setCurrentStepIndex(STEPS.length);
-        setStatusMessage("Complete! Opening Studio Timeline...");
+        if (aiIntervalTimer) clearInterval(aiIntervalTimer);
+        setStepProgress((prev) => ({ ...prev, 2: 100 }));
+
+        // ─── STEP 3: Finalizing Project ───
+        setCurrentStepIndex(3);
+        setStatusMessage("Finalizing project and loading Studio Timeline...");
+        setStepProgress((prev) => ({ ...prev, 3: 100 }));
 
         setTimeout(() => {
           onComplete(data);
-        }, 800);
+        }, 600);
 
       } catch (err: unknown) {
         const errObj = err as { message?: string };
         console.error("Video processing error:", err);
         setError(errObj.message || "Failed to analyze video. Please try again.");
-        if (intervalTimer) clearInterval(intervalTimer);
+        if (aiIntervalTimer) clearInterval(aiIntervalTimer);
       }
     };
 
     processVideo();
 
     return () => {
-      if (intervalTimer) clearInterval(intervalTimer);
+      if (aiIntervalTimer) clearInterval(aiIntervalTimer);
     };
   }, [file, context, onComplete]);
 
+  // Compute total overall percentage (0% -> 100%) across 4 steps
+  const overallProgress = Math.min(100, Math.round(
+    ((stepProgress[0] || 0) * 0.25) +
+    ((stepProgress[1] || 0) * 0.25) +
+    ((stepProgress[2] || 0) * 0.40) +
+    ((stepProgress[3] || 0) * 0.10)
+  ));
+
   return (
     <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-3xl p-6 md:p-10 shadow-xl relative overflow-hidden">
-      {/* Decorative background blur */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
-      <div className="text-center mb-10 relative z-10">
-        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+      <div className="text-center mb-8 relative z-10">
+        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Sparkles className="w-8 h-8 text-primary animate-pulse" />
         </div>
         {error ? (
-          <h2 className="text-3xl font-bold mb-3 text-red-600">Processing Failed</h2>
+          <h2 className="text-3xl font-bold mb-2 text-red-600">Processing Failed</h2>
         ) : (
-          <h2 className="text-3xl font-bold mb-3 text-gray-900 flex items-center justify-center gap-2">
-            AI Engine Processing <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
+          <h2 className="text-3xl font-bold mb-2 text-gray-900">
+            AI Engine Processing
           </h2>
         )}
-        <p className={error ? "text-red-500 font-medium" : "text-gray-500"}>
-          {error
-            ? error
-            : statusMessage}
+        <p className={error ? "text-red-500 font-medium" : "text-gray-500 text-sm"}>
+          {error ? error : statusMessage}
         </p>
 
         {compressionStats && !error && (
-          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-full">
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-full">
             {compressionStats}
           </div>
         )}
       </div>
 
-      <div className="space-y-6 relative z-10 pl-4 md:pl-12">
+      {/* Overall Progress Bar */}
+      {!error && (
+        <div className="mb-8 relative z-10 bg-gray-50 border border-gray-100 rounded-2xl p-4 shadow-inner">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Overall Processing Progress
+            </span>
+            <span className="text-sm font-bold font-mono text-primary">
+              {overallProgress}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden p-0.5">
+            <div
+              className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 rounded-full transition-all duration-300 ease-out shadow-sm"
+              style={{ width: `${overallProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 4 Steps List with Individual Progress Bars */}
+      <div className="space-y-6 relative z-10 pl-2 md:pl-6">
         {STEPS.map((step, index) => {
-          const isCompleted = index < currentStepIndex
-          const isCurrent = index === currentStepIndex
+          const isCompleted = index < currentStepIndex || stepProgress[index] === 100
+          const isCurrent = index === currentStepIndex && stepProgress[index] < 100
+          const currentPct = isCompleted ? 100 : (isCurrent ? (stepProgress[index] || 0) : 0)
 
           return (
-            <div key={step} className="flex items-center gap-4 relative">
-              {/* Connector Line */}
-              {index !== STEPS.length - 1 && (
-                <div
-                  className={cn(
-                    "absolute left-[11px] top-[30px] bottom-[-24px] w-[2px]",
-                    isCompleted ? "bg-primary" : "bg-border"
-                  )}
-                />
-              )}
+            <div key={step} className="flex flex-col gap-2 relative">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative z-10">
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 fill-emerald-100" />
+                    ) : isCurrent ? (
+                      <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-gray-300" />
+                    )}
+                  </div>
+                  <span
+                    className={cn(
+                      "font-medium text-sm md:text-base transition-colors duration-300",
+                      isCompleted
+                        ? "text-gray-900 font-semibold"
+                        : isCurrent
+                        ? "text-blue-600 font-bold"
+                        : "text-gray-400"
+                    )}
+                  >
+                    {step}
+                  </span>
+                </div>
 
-              <div className="relative z-10">
-                {isCompleted ? (
-                  <CheckCircle2 className="w-6 h-6 text-primary fill-primary/10" />
-                ) : isCurrent ? (
-                  <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
-                ) : (
-                  <Circle className="w-6 h-6 text-gray-300" />
-                )}
+                <span
+                  className={cn(
+                    "text-xs font-mono px-2.5 py-0.5 rounded-full border transition-all duration-300",
+                    isCompleted
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 font-medium"
+                      : isCurrent
+                      ? "bg-blue-50 text-blue-700 border-blue-200 font-semibold"
+                      : "bg-gray-50 text-gray-400 border-gray-200"
+                  )}
+                >
+                  {currentPct}%
+                </span>
               </div>
 
-              <span
-                className={cn(
-                  "font-medium md:text-lg transition-colors duration-300",
-                  isCompleted ? "text-gray-900" : isCurrent ? "text-blue-600 font-semibold" : "text-gray-400"
-                )}
-              >
-                {step}
-              </span>
+              {/* Per-step Fulfillment Progress Bar */}
+              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden ml-8 max-w-[calc(100%-2rem)]">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-300 ease-out",
+                    isCompleted
+                      ? "bg-emerald-500"
+                      : isCurrent
+                      ? "bg-blue-600"
+                      : "bg-transparent"
+                  )}
+                  style={{ width: `${currentPct}%` }}
+                />
+              </div>
             </div>
           )
         })}
