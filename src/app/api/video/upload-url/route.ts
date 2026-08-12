@@ -53,10 +53,11 @@ export async function POST(req: NextRequest) {
     
     console.log("[upload-url] Signed URL generated successfully");
     return NextResponse.json({ url, key: fileKey });
-  } catch (error: any) {
-    console.error("[upload-url] Error:", error?.message, error?.stack);
+  } catch (error: unknown) {
+    const err = error as { message?: string; stack?: string };
+    console.error("[upload-url] Error:", err?.message, err?.stack);
     return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+      { error: err?.message || "Internal server error" },
       { status: 500 }
     );
   }
