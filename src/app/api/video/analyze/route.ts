@@ -19,7 +19,6 @@ export async function POST(req: Request) {
   let tempFilePath = "";
   let compressedPath = "";
   let uploadedAnalyzeFile = "";
-  let uploadedCaptionsFile = "";
   try {
     // --- SECURITY GUARD ---
     const authHeader = req.headers.get('authorization');
@@ -354,13 +353,6 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
       try {
         const fm = new GoogleAIFileManager(analyzeApiKey);
         await fm.deleteFile(uploadedAnalyzeFile).catch(() => { });
-      } catch { }
-    }
-
-    if (uploadedCaptionsFile && captionsApiKey) {
-      try {
-        const fm = new GoogleAIFileManager(captionsApiKey);
-        await fm.deleteFile(uploadedCaptionsFile).catch(() => { });
       } catch { }
     }
   }
