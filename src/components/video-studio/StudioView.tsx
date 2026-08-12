@@ -4,16 +4,16 @@ import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { EditableCanvasNode, Transform } from "./EditableCanvasNode"
 import {
-   Play, Pause, Scissors, Type, Volume2, Image as ImageIcon,
-   Settings, Download, ChevronRight, Zap, TrendingUp, BookOpen,
-   Smile, Flame, Activity, Layout, Wand2, ArrowLeft, Check, Layers, Sparkles, Trash2, SplitSquareHorizontal, ZoomIn, ZoomOut, Move,
-   Smartphone, Monitor, Square, Plus, Music, Combine, Edit2, Copy, PlusCircle, UploadCloud, Video, Film,
-   Grid, Crop, RotateCcw, FastForward, Clock, Maximize, MousePointer2, Lock, Eye, EyeOff, Hash, FileVideo, AudioWaveform, SlidersHorizontal, Sun, Contrast, Gauge, Unlock,
-   Search, FolderOpen, Star, Undo, Redo, LayoutGrid, List, MessageSquare, MoreVertical, MousePointer,
-   Moon, Expand, Minimize, Command, X, ChevronUp, ChevronDown
+   Play, Pause, Scissors, Type, Image as ImageIcon,
+   Download, Zap, Flame, Wand2, ArrowLeft, Check, Layers, Sparkles, Trash2, SplitSquareHorizontal, ZoomIn, ZoomOut, Move,
+   Plus, Copy, UploadCloud, Video, Film,
+   Grid, Crop, RotateCcw, FastForward, Clock, Maximize, MousePointer2, Lock, Eye, EyeOff, FileVideo, AudioWaveform, SlidersHorizontal, Sun, Contrast, Gauge, Unlock,
+   FolderOpen, Undo, Redo, MessageSquare,
+   Moon, Expand, Minimize, X, ChevronUp, ChevronDown, Loader2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import WaveSurfer from 'wavesurfer.js'
+import { segmentTranscriptIntoCaptions } from "@/lib/caption-utils"
 
 const WaveformTrack = ({ fileUrl, width }: { fileUrl: string, width: number }) => {
    const containerRef = useRef<HTMLDivElement>(null)
@@ -98,6 +98,24 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
    const [aiClips, setAiClips] = useState(initialClips.length > 0 ? initialClips : [])
    const [projectClips, setProjectClips] = useState<any[]>(() => {
       const defaultClips: any[] = [{ id: 'c1', trackId: 'v1', type: 'video', start: 0, end: 15, duration: 15, title: 'Podcast Source' }];
+
+      if (initialCaptions && initialCaptions.length > 0) {
+         console.log(`[CAPTION PIPELINE] Auto-populating timeline track V2 with ${initialCaptions.length} initial captions`);
+         const formatted = segmentTranscriptIntoCaptions(initialCaptions);
+         defaultClips.push({
+            id: 'cap_initial',
+            trackId: 'v2',
+            type: 'text',
+            start: 0,
+            end: 15,
+            duration: 15,
+            title: 'Auto Captions',
+            text: '',
+            chunks: formatted,
+            transform: { x: 0, y: 150, width: 600, height: 60, scale: 100, rotation: 0 },
+            style: { fontFamily: 'Inter', fontSize: 48, preset: 'hormozi' }
+         });
+      }
 
       if (initialCuts && initialCuts.length > 0) {
          initialCuts.forEach((cut: any, index: number) => {
@@ -518,7 +536,8 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                     }];
 
                                     if (clip.captions && clip.captions.length > 0) {
-                                       const shiftedChunks = clip.captions;
+                                       console.log(`[CAPTION PIPELINE] Processing ${clip.captions.length} captions for clip '${clip.title}'`);
+                                       const formatted = segmentTranscriptIntoCaptions(clip.captions);
 
                                        let preset = 'hormozi';
                                        if (clip.caption_style) {
@@ -527,6 +546,11 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                           else if (styleStr.includes('bold')) preset = 'beast';
                                           else if (styleStr.includes('youtube')) preset = 'youtube';
                                           else if (styleStr.includes('tiktok')) preset = 'tiktok';
+                                          else if (styleStr.includes('netflix')) preset = 'netflix';
+                                          else if (styleStr.includes('ali')) preset = 'ali';
+                                          else if (styleStr.includes('neon')) preset = 'neon';
+                                          else if (styleStr.includes('paper')) preset = 'paper-cut';
+                                          else if (styleStr.includes('skillizee')) preset = 'skillizee';
                                        }
 
                                        newClips.push({
@@ -537,11 +561,12 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                           duration: duration,
                                           title: 'Auto Captions',
                                           text: '',
-                                          chunks: shiftedChunks,
+                                          chunks: formatted,
                                           transform: { x: 0, y: 150, width: 600, height: 60, scale: 100, rotation: 0 },
                                           style: { fontFamily: 'Inter', fontSize: 48, preset: preset }
                                        });
                                        setCaptionsGenerated(true);
+                                       console.log(`[CAPTION PIPELINE] Timeline updated with ${formatted.length} caption segments for AI clip`);
                                     } else {
                                        setCaptionsGenerated(false);
                                     }
@@ -624,39 +649,86 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                               <h3 className={cn("text-sm font-semibold mb-1", textHighlight)}>Auto-Captions</h3>
                               <p className={cn("text-xs mb-4 max-w-[200px]", textMuted)}>Click below to add the AI-generated captions to your timeline.</p>
                               <button
-                                 onClick={() => {
-                                    if (!activeClip || activeClip.type !== 'video') {
-                                       alert("Please select a video clip first.");
+                                 onClick={async () => {
+                                    const targetClip = activeClip?.type === 'video' ? activeClip : projectClips.find(c => c.type === 'video');
+                                    if (!targetClip) {
+                                       alert("Please select or add a video clip first.");
                                        return;
                                     }
 
-                                    const sourceClip = aiClips.find((c: any) => c.start_time === activeClip.mediaStart);
-                                    if (!sourceClip || !sourceClip.captions || sourceClip.captions.length === 0) {
-                                       alert("No captions were generated for this clip.");
-                                       return;
+                                    const sourceClip = aiClips.find((c: any) => c.title === targetClip.title || c.start_time === targetClip.mediaStart);
+                                    let rawCaptions = sourceClip?.captions || initialCaptions;
+
+                                    if (!rawCaptions || rawCaptions.length === 0) {
+                                       // Request transcription via API if file exists
+                                       if (file) {
+                                          try {
+                                             setIsGeneratingCaptions(true);
+                                             console.log(`[CAPTION PIPELINE] Caption generation started via transcription API...`);
+                                             const fd = new FormData();
+                                             fd.append("video", file);
+                                             fd.append("start_time", (targetClip.mediaStart || 0).toString());
+                                             fd.append("end_time", (targetClip.mediaEnd || targetClip.duration).toString());
+
+                                             const res = await fetch("/api/video/transcribe", {
+                                                method: "POST",
+                                                headers: { "Authorization": `Bearer ${process.env.NEXT_PUBLIC_API_SECRET_TOKEN}` },
+                                                body: fd
+                                             });
+
+                                             if (!res.ok) {
+                                                const errJson = await res.json().catch(() => ({}));
+                                                throw new Error(errJson.error || "Failed to generate captions");
+                                             }
+
+                                             const data = await res.json();
+                                             rawCaptions = data.captions || [];
+                                          } catch (err: any) {
+                                             console.error("[CAPTION PIPELINE] Caption generation failed:", err);
+                                             alert(`Caption generation failed: ${err.message}`);
+                                             return;
+                                          } finally {
+                                             setIsGeneratingCaptions(false);
+                                          }
+                                       } else {
+                                          alert("No caption data available for this video clip.");
+                                          return;
+                                       }
                                     }
 
+                                    const formatted = segmentTranscriptIntoCaptions(rawCaptions);
                                     const newCaptionClip = {
                                        id: 'cap_' + Date.now(),
                                        trackId: 'v2', type: 'text',
-                                       start: activeClip.start,
-                                       end: activeClip.start + activeClip.duration,
-                                       duration: activeClip.duration,
+                                       start: targetClip.start,
+                                       end: targetClip.start + targetClip.duration,
+                                       duration: targetClip.duration,
                                        title: 'Auto Captions',
                                        text: '',
-                                       chunks: sourceClip.captions,
+                                       chunks: formatted,
                                        transform: { x: 0, y: 150, width: 600, height: 60, scale: 100, rotation: 0 },
-                                       style: { fontFamily: 'Inter', fontSize: 48, preset: 'dark' }
+                                       style: { fontFamily: 'Inter', fontSize: 48, preset: 'hormozi' }
                                     };
 
-                                    setProjectClips(p => [...p, newCaptionClip]);
+                                    setProjectClips(p => [...p.filter(c => c.type !== 'text'), newCaptionClip]);
                                     setActiveClipId(newCaptionClip.id);
                                     setCaptionsGenerated(true);
+                                    console.log(`[CAPTION PIPELINE] Timeline updated - Added ${formatted.length} caption segments to track V2`);
                                  }}
-                                 className="bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs font-semibold px-4 py-2 rounded flex items-center gap-2"
+                                 disabled={isGeneratingCaptions}
+                                 className="bg-[#6366F1] hover:bg-[#4F46E5] disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded flex items-center gap-2"
                               >
-                                 <Sparkles className="w-3 h-3" />
-                                 Add Captions to Timeline
+                                 {isGeneratingCaptions ? (
+                                    <>
+                                       <Loader2 className="w-3 h-3 animate-spin" />
+                                       Generating captions...
+                                    </>
+                                 ) : (
+                                    <>
+                                       <Sparkles className="w-3 h-3" />
+                                       Add Captions to Timeline
+                                    </>
+                                 )}
                               </button>
                            </>
                         ) : (
@@ -765,7 +837,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                              >
                                                 <img src={`https://image.pollinations.ai/prompt/${encodeURIComponent(br.keyword)}?width=150&height=150&nologo=true`} className="w-12 h-12 rounded object-cover shrink-0 bg-black/40 pointer-events-none" alt={br.keyword} />
                                                 <div className="flex-1 pointer-events-none">
-                                                   <p className="text-[10px] font-semibold text-white">"{br.keyword}"</p>
+                                                   <p className="text-[10px] font-semibold text-white">&quot;{br.keyword}&quot;</p>
                                                    <p className="text-[9px] text-gray-400 mt-1">@ {br.start_time.toFixed(1)}s (for {br.duration}s)</p>
                                                    <p className="text-[8px] text-[#6366F1] mt-1 opacity-80">Drag onto video →</p>
                                                 </div>
@@ -982,7 +1054,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
 
                      {/* Canvas Elements */}
                      {projectClips.filter(c => c.type === 'text' && currentTime >= c.start && currentTime <= (c.start + c.duration)).map(clip => {
-                        let displayText = clip.text || "(Caption Placeholder)";
+                        let displayText = "";
                         let isVisible = true;
 
                         let activeChunk: any = null;
@@ -1005,11 +1077,12 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                  }));
                               }
                            } else {
-                              const nextChunk = clip.chunks.find((ch: any) => ch.start > (currentTime - clip.start));
-                              const prevChunk = [...clip.chunks].reverse().find((ch: any) => ch.end < (currentTime - clip.start));
-                              displayText = nextChunk ? nextChunk.text : (prevChunk ? prevChunk.text : "(Caption Placeholder)");
+                              displayText = "";
                               isVisible = false;
                            }
+                        } else {
+                           displayText = "";
+                           isVisible = false;
                         }
 
                         const isSelected = activeClipId === clip.id;
@@ -1035,7 +1108,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                  const baseFontSize = clip.style?.fontSize || 48;
 
                                  // Base text styles mapped from preset
-                                 let baseStyle: React.CSSProperties = {
+                                 const baseStyle: React.CSSProperties = {
                                     fontFamily: clip.style?.fontFamily || 'Inter',
                                     textAlign: 'center',
                                     whiteSpace: 'pre-wrap',
@@ -1564,13 +1637,12 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                            </div>
                         </>
                      )}
-
                      {activeClip?.type === 'cut' && (
                         <>
                            <div className={cn("w-full h-px my-4", borderCol, "border-b")} />
                            <div className="space-y-3">
                               <h4 className={cn("text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-orange-500")}><Crop className="w-3 h-3" /> AI Auto-Framing</h4>
-                              <p className={cn("text-[10px]", textMuted, "leading-tight mb-2")}>Manually override the AI's camera position for this specific cut.</p>
+                              <p className={cn("text-[10px]", textMuted, "leading-tight mb-2")}>Manually override the AI&apos;s camera position for this specific cut.</p>
                               <div className="space-y-2">
                                  <div className={cn("flex justify-between text-[10px]", textMuted)}><span>Horizontal Pan (Center X)</span> <span>{Math.round((activeClip.cx_percent || 0.5) * 100)}%</span></div>
                                  <input type="range" min="0" max="100" value={(activeClip.cx_percent || 0.5) * 100} onChange={e => {
@@ -1997,14 +2069,13 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                     formData.append("viral_sound_design", addSoundDesign ? "true" : "false");
                                     formData.append("viral_bouncy_text", bouncyText ? "true" : "false");
 
-                                    if (textClip) {
-                                       let exportTextClip = JSON.parse(JSON.stringify(textClip));
+                                    const captionChunks = textClip?.chunks || textClip?.data?.chunks;
+                                    if (textClip && captionChunks && captionChunks.length > 0) {
+                                       console.log(`[CAPTION PIPELINE] Export started - Exporting ${captionChunks.length} caption segments with style preset '${textClip.style?.preset || 'hormozi'}'`);
+                                       const exportTextClip = JSON.parse(JSON.stringify(textClip));
 
                                        // Shift chunk times relative to the FFMPEG export window
-                                       // FFMPEG starts at 0, corresponding to 'start_time' on the timeline.
-                                       // chunk absolute time = textClip.start + chunk.start
-                                       // FFMPEG relative time = absolute time - start_time
-                                       exportTextClip.data.chunks = exportTextClip.data.chunks.map((chunk: any) => ({
+                                       exportTextClip.chunks = captionChunks.map((chunk: any) => ({
                                           ...chunk,
                                           start: textClip.start + chunk.start - start_time,
                                           end: textClip.start + chunk.end - start_time,
@@ -2022,7 +2093,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                        }
                                     }
 
-                                    let exportCameraCuts = projectClips.filter(c => c.type === 'cut');
+                                    const exportCameraCuts = projectClips.filter(c => c.type === 'cut');
                                     if (exportCameraCuts.length > 0) {
                                        formData.append("cameraCuts", JSON.stringify(exportCameraCuts));
                                     }
@@ -2059,7 +2130,7 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                           try {
                                              const err = await res.json();
                                              errText = err.error || errText;
-                                          } catch (e) {
+                                          } catch {
                                              errText = `Server returned status ${res.status}: ${res.statusText}`;
                                           }
                                           throw new Error(errText);

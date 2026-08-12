@@ -9,6 +9,7 @@ import { exec } from 'child_process';
 import util from 'util';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { storage } from '@/lib/firebase-admin';
+import { segmentTranscriptIntoCaptions } from '@/lib/caption-utils';
 
 const execPromise = util.promisify(exec);
 
@@ -43,12 +44,12 @@ export async function POST(req: Request) {
     // ----------------------
 
     const formData = await req.formData();
-    let file = formData.get('video') as File | null;
+    const file = (formData.get('audio') as File | null) || (formData.get('video') as File | null);
     const fileKey = formData.get('fileKey') as string | null;
     const context = formData.get('context') as string;
 
     if (!file && !fileKey) {
-      return NextResponse.json({ error: 'No video file or fileKey provided' }, { status: 400 });
+      return NextResponse.json({ error: 'No video or audio file or fileKey provided' }, { status: 400 });
     }
 
     const analyzeApiKey = process.env.GEMINI_API_KEY_ANALYZE || process.env.GEMINI_API_KEY;
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
       throw new Error("Gemini API keys are not defined (GEMINI_API_KEY_ANALYZE / GEMINI_API_KEY_CAPTIONS)");
     }
 
-    tempFilePath = join(tmpdir(), `${uuidv4()}-${file ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'video.mp4'}`);
+    tempFilePath = join(tmpdir(), `${uuidv4()}-${file ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'media_file'}`);
     compressedPath = join(tmpdir(), `${uuidv4()}-compressed.m4a`);
 
     let ffmpegInputPath = tempFilePath;
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
         expires: Date.now() + 60 * 60 * 1000, // 1 hour
       });
       
-      console.log("Downloading video from Firebase to local temp file to speed up FFMPEG...");
+      console.log("Downloading file from Firebase to local temp file...");
       const fetchRes = await fetch(url);
       if (!fetchRes.ok) throw new Error("Failed to fetch video from Firebase");
       const buffer = Buffer.from(await fetchRes.arrayBuffer());
@@ -82,20 +83,34 @@ export async function POST(req: Request) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       await writeFile(tempFilePath, buffer);
-      console.log(`Saved temp video to ${tempFilePath}`);
+      console.log(`Saved temp media file to ${tempFilePath} (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
     }
 
-    // Extract audio only to drastically speed up Gemini upload and processing
+    // Determine if file is already audio to skip server FFmpeg extraction
     let finalUploadPath = ffmpegInputPath;
     let finalMimeType = file ? file.type : "video/mp4";
-    console.log("Extracting audio before sending to Gemini...");
-    try {
-      await execPromise(`"${ffmpegInstaller.path}" -i "${ffmpegInputPath}" -vn -c:a aac -b:a 32k "${compressedPath}" -y`);
-      finalUploadPath = compressedPath;
-      finalMimeType = "audio/mp4";
-      console.log("Audio extraction finished successfully.");
-    } catch (err) {
-      console.error("Audio extraction failed, using original file (this may fail if file is huge and not local):", err);
+    const isAlreadyAudio = file && (
+      file.type.startsWith('audio/') || 
+      file.name.endsWith('.wav') || 
+      file.name.endsWith('.mp3') || 
+      file.name.endsWith('.m4a') || 
+      file.name.includes('_audio')
+    );
+
+    if (isAlreadyAudio) {
+      console.log(`[SPEED OPTIMIZATION] Uploaded payload is already optimized audio (${file.type || 'audio/wav'}). Skipping server FFmpeg extraction!`);
+      finalUploadPath = tempFilePath;
+      finalMimeType = file.type || "audio/wav";
+    } else {
+      console.log("Extracting audio from video file before sending to Gemini...");
+      try {
+        await execPromise(`"${ffmpegInstaller.path}" -i "${ffmpegInputPath}" -vn -c:a aac -b:a 32k "${compressedPath}" -y`);
+        finalUploadPath = compressedPath;
+        finalMimeType = "audio/mp4";
+        console.log("Audio extraction finished successfully.");
+      } catch (err) {
+        console.error("Audio extraction failed, using original file (this may fail if file is huge and not local):", err);
+      }
     }
 
     // Upload to Gemini
@@ -188,7 +203,6 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
     }
 
     let captionsUpload = analyzeUpload;
-    let uploadedCaptionsFile = "";
     if (!sameKey) {
       console.log("Uploading file to Gemini (Captions)...");
       captionsUpload = await captionsFileManager.uploadFile(finalUploadPath, {
@@ -207,6 +221,7 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
 
     const captionsPrompt = `You are a highly accurate transcription assistant. Your task is to transcribe the speech in this media.
 CRITICAL INSTRUCTION: Break the transcription into short phrases (3-5 words) suitable for fast-paced Captions.ai style videos.
+DO NOT include any emojis, non-text symbols, or sound/silence tags like [Silence], (Silence), (Laughter), or [Music]. Return ONLY spoken words.
 Return ONLY a valid JSON array. Each object in the array must have:
 - "text": The text of the short phrase
 - "start": The start time in seconds (float, e.g., 1.5)
@@ -261,7 +276,23 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
       return NextResponse.json({ error: "Failed to parse AI output." }, { status: 500 });
     }
 
-    let parsedCaptions: any[] = [];
+    interface RawPhrase {
+      start?: number | string;
+      end?: number | string;
+      start_time?: number | string;
+      end_time?: number | string;
+      text?: string;
+      words?: Array<{ word: string; start?: number | string; end?: number | string }>;
+    }
+
+    interface ClipItem {
+      start_time?: string | number;
+      end_time?: string | number;
+      captions?: unknown[];
+      [key: string]: unknown;
+    }
+
+    let rawCaptionsArray: RawPhrase[] = [];
     try {
       const cleanedCaptions = rawCaptionsResponse.replace(/```json/g, '').replace(/```/g, '').trim();
       let substringToParse = cleanedCaptions;
@@ -269,58 +300,52 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
       const endCaptions = cleanedCaptions.lastIndexOf(']');
       if (startCaptions !== -1 && endCaptions !== -1) {
         substringToParse = cleanedCaptions.substring(startCaptions, endCaptions + 1);
-        parsedCaptions = JSON.parse(substringToParse);
+        rawCaptionsArray = JSON.parse(substringToParse);
       } else {
-        parsedCaptions = JSON.parse(cleanedCaptions);
+        rawCaptionsArray = JSON.parse(cleanedCaptions);
       }
     } catch (e) {
-      console.error("Failed to parse Gemini output (captions):", e);
+      console.error("[CAPTION PIPELINE] Failed to parse Gemini output (captions):", e);
     }
 
-    // Slice captions per clip
-    parsedClips.forEach((clip: any) => {
-      const clipStart = parseFloat(clip.start_time);
-      const clipEnd = parseFloat(clip.end_time);
-      clip.captions = [];
+    // Segment full video captions into 2-6 word chunks
+    const formattedFullCaptions = segmentTranscriptIntoCaptions(rawCaptionsArray);
+
+    // Slice captions per clip and format each clip's captions
+    (parsedClips as ClipItem[]).forEach((clip) => {
+      const clipStart = typeof clip.start_time === 'number' ? clip.start_time : parseFloat(String(clip.start_time || 0)) || 0;
+      const clipEnd = typeof clip.end_time === 'number' ? clip.end_time : parseFloat(String(clip.end_time || 0)) || 0;
       
-      const parseTime = (val: any): number => {
-        if (typeof val === 'number') return val;
-        if (typeof val === 'string') {
-          if (val.includes(':')) {
-            const parts = val.split(':').map(Number);
-            if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-            if (parts.length === 2) return parts[0] * 60 + parts[1];
-          }
-          return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
-        }
-        return 0;
-      };
+      const rawClipPhrases: RawPhrase[] = [];
+      rawCaptionsArray.forEach((phrase) => {
+        const pStart = typeof phrase.start !== 'undefined' ? Number(phrase.start) : (typeof phrase.start_time !== 'undefined' ? Number(phrase.start_time) : 0);
+        const pEnd = typeof phrase.end !== 'undefined' ? Number(phrase.end) : (typeof phrase.end_time !== 'undefined' ? Number(phrase.end_time) : 0);
 
-      parsedCaptions.forEach((phrase: any) => {
-        // If phrase overlaps with clip
-        const phraseStart = typeof phrase.start !== 'undefined' ? parseTime(phrase.start) : (typeof phrase.start_time !== 'undefined' ? parseTime(phrase.start_time) : 0);
-        const phraseEnd = typeof phrase.end !== 'undefined' ? parseTime(phrase.end) : (typeof phrase.end_time !== 'undefined' ? parseTime(phrase.end_time) : 0);
-
-        if (phraseStart >= clipStart - 1.0 && phraseEnd <= clipEnd + 1.0) {
-           let p = JSON.parse(JSON.stringify(phrase));
-           p.start = Math.max(0, phraseStart - clipStart);
-           p.end = Math.max(0, phraseEnd - clipStart);
+        if (pStart >= clipStart - 1.0 && pEnd <= clipEnd + 1.0) {
+           const p: RawPhrase = JSON.parse(JSON.stringify(phrase));
+           p.start = Math.max(0, pStart - clipStart);
+           p.end = Math.max(0, pEnd - clipStart);
            if (p.words) {
-               p.words = p.words.map((w: any) => ({
+               p.words = p.words.map((w) => ({
                    ...w,
-                   start: Math.max(0, (typeof w.start !== 'undefined' ? parseTime(w.start) : phraseStart) - clipStart),
-                   end: Math.max(0, (typeof w.end !== 'undefined' ? parseTime(w.end) : phraseEnd) - clipStart)
+                   start: Math.max(0, (typeof w.start !== 'undefined' ? Number(w.start) : pStart) - clipStart),
+                   end: Math.max(0, (typeof w.end !== 'undefined' ? Number(w.end) : pEnd) - clipStart)
                }));
            }
-           clip.captions.push(p);
+           rawClipPhrases.push(p);
         }
       });
+
+      clip.captions = segmentTranscriptIntoCaptions(rawClipPhrases);
     });
 
-    return NextResponse.json({ clips: parsedClips, captions: parsedCaptions, cuts: parsedCuts, fileKey: fileKey || "" });
-  } catch (error: any) {
+    console.log(`[CAPTION PIPELINE] Completed processing. Sending ${formattedFullCaptions.length} full video caption segments and ${parsedClips.length} clips.`);
+
+    return NextResponse.json({ clips: parsedClips, captions: formattedFullCaptions, cuts: parsedCuts, fileKey: fileKey || "" });
+  } catch (error: unknown) {
+    const errObj = error as { message?: string };
     console.error('Video Analysis API Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: errObj.message || 'Internal Server Error' }, { status: 500 });
   } finally {
     if (tempFilePath) await unlink(tempFilePath).catch(() => { });
     if (compressedPath) await unlink(compressedPath).catch(() => { });
@@ -332,14 +357,14 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
       try {
         const fm = new GoogleAIFileManager(analyzeApiKey);
         await fm.deleteFile(uploadedAnalyzeFile).catch(() => { });
-      } catch (e) { }
+      } catch { }
     }
 
     if (uploadedCaptionsFile && captionsApiKey) {
       try {
         const fm = new GoogleAIFileManager(captionsApiKey);
         await fm.deleteFile(uploadedCaptionsFile).catch(() => { });
-      } catch (e) { }
+      } catch { }
     }
   }
 }
