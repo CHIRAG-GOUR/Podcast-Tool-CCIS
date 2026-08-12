@@ -44,12 +44,12 @@ export async function POST(req: Request) {
     // ----------------------
 
     const formData = await req.formData();
-    const file = formData.get('video') as File | null;
+    const file = (formData.get('audio') as File | null) || (formData.get('video') as File | null);
     const fileKey = formData.get('fileKey') as string | null;
     const context = formData.get('context') as string;
 
     if (!file && !fileKey) {
-      return NextResponse.json({ error: 'No video file or fileKey provided' }, { status: 400 });
+      return NextResponse.json({ error: 'No video or audio file or fileKey provided' }, { status: 400 });
     }
 
     const analyzeApiKey = process.env.GEMINI_API_KEY_ANALYZE || process.env.GEMINI_API_KEY;
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       throw new Error("Gemini API keys are not defined (GEMINI_API_KEY_ANALYZE / GEMINI_API_KEY_CAPTIONS)");
     }
 
-    tempFilePath = join(tmpdir(), `${uuidv4()}-${file ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'video.mp4'}`);
+    tempFilePath = join(tmpdir(), `${uuidv4()}-${file ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'media_file'}`);
     compressedPath = join(tmpdir(), `${uuidv4()}-compressed.m4a`);
 
     let ffmpegInputPath = tempFilePath;
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         expires: Date.now() + 60 * 60 * 1000, // 1 hour
       });
       
-      console.log("Downloading video from Firebase to local temp file to speed up FFMPEG...");
+      console.log("Downloading file from Firebase to local temp file...");
       const fetchRes = await fetch(url);
       if (!fetchRes.ok) throw new Error("Failed to fetch video from Firebase");
       const buffer = Buffer.from(await fetchRes.arrayBuffer());
@@ -83,20 +83,34 @@ export async function POST(req: Request) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       await writeFile(tempFilePath, buffer);
-      console.log(`Saved temp video to ${tempFilePath}`);
+      console.log(`Saved temp media file to ${tempFilePath} (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
     }
 
-    // Extract audio only to drastically speed up Gemini upload and processing
+    // Determine if file is already audio to skip server FFmpeg extraction
     let finalUploadPath = ffmpegInputPath;
     let finalMimeType = file ? file.type : "video/mp4";
-    console.log("Extracting audio before sending to Gemini...");
-    try {
-      await execPromise(`"${ffmpegInstaller.path}" -i "${ffmpegInputPath}" -vn -c:a aac -b:a 32k "${compressedPath}" -y`);
-      finalUploadPath = compressedPath;
-      finalMimeType = "audio/mp4";
-      console.log("Audio extraction finished successfully.");
-    } catch (err) {
-      console.error("Audio extraction failed, using original file (this may fail if file is huge and not local):", err);
+    const isAlreadyAudio = file && (
+      file.type.startsWith('audio/') || 
+      file.name.endsWith('.wav') || 
+      file.name.endsWith('.mp3') || 
+      file.name.endsWith('.m4a') || 
+      file.name.includes('_audio')
+    );
+
+    if (isAlreadyAudio) {
+      console.log(`[SPEED OPTIMIZATION] Uploaded payload is already optimized audio (${file.type || 'audio/wav'}). Skipping server FFmpeg extraction!`);
+      finalUploadPath = tempFilePath;
+      finalMimeType = file.type || "audio/wav";
+    } else {
+      console.log("Extracting audio from video file before sending to Gemini...");
+      try {
+        await execPromise(`"${ffmpegInstaller.path}" -i "${ffmpegInputPath}" -vn -c:a aac -b:a 32k "${compressedPath}" -y`);
+        finalUploadPath = compressedPath;
+        finalMimeType = "audio/mp4";
+        console.log("Audio extraction finished successfully.");
+      } catch (err) {
+        console.error("Audio extraction failed, using original file (this may fail if file is huge and not local):", err);
+      }
     }
 
     // Upload to Gemini

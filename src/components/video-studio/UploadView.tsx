@@ -132,7 +132,7 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
                   <Clock className="w-5 h-5 text-orange-500" />
                   <div>
                     <p className="text-xs text-muted-foreground">Est. Processing</p>
-                    <p className="font-semibold">~2-5 mins</p>
+                    <p className="font-semibold text-emerald-600 font-mono">~20-30 secs</p>
                   </div>
                 </div>
               </div>
