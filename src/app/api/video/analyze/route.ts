@@ -237,7 +237,7 @@ Do NOT include markdown formatting or backticks. Just pure JSON.`;
     // Run auto_framer.py to get facial recognition camera cuts with a strict 3-second timeout
     const cutsJsonPath = join(tmpdir(), `${uuidv4()}-cuts.json`);
     const pythonScript = join(process.cwd(), 'scripts', 'auto_framer.py');
-    const framerTimeout = new Promise<any[]>((resolve) => 
+    const framerTimeout = new Promise<unknown[]>((resolve) => 
       setTimeout(() => {
         console.log("[Pipeline] Auto framer timed out (3s limit), proceeding with Gemini response.");
         resolve([]);
