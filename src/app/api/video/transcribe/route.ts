@@ -10,6 +10,8 @@ import util from 'util';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { segmentTranscriptIntoCaptions } from '@/lib/caption-utils';
 
+import { storage } from '@/lib/firebase-admin';
+
 const execPromise = util.promisify(exec);
 
 export const maxDuration = 300; 
@@ -42,29 +44,43 @@ export async function POST(req: Request) {
     // ----------------------
 
     const formData = await req.formData();
-    const file = formData.get('video') as File;
+    const file = formData.get('video') as File | null;
+    const fileKey = formData.get('fileKey') as string | null;
     const startTime = formData.get('start_time') as string;
     const endTime = formData.get('end_time') as string;
     
-    if (!file) {
-      return NextResponse.json({ error: 'No video file provided' }, { status: 400 });
+    if (!file && !fileKey) {
+      return NextResponse.json({ error: 'No video file or fileKey provided' }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY_CAPTIONS || process.env.GEMINI_API_KEY;
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY is not defined");
     }
 
-    // Save file locally to temp dir
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    tempVideoPath = join(tmpdir(), `${uuidv4()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
-    
-    await writeFile(tempVideoPath, buffer);
+    tempVideoPath = join(tmpdir(), `${uuidv4()}-${file ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'media_file'}`);
+
+    if (fileKey) {
+      console.log(`[CAPTION PIPELINE] Fetching signed URL for fileKey: ${fileKey}`);
+      const bucketName = process.env.ADMIN_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || 'skillizee-products.firebasestorage.app';
+      const [url] = await storage.bucket(bucketName).file(fileKey).getSignedUrl({
+        version: 'v4',
+        action: 'read',
+        expires: Date.now() + 60 * 60 * 1000,
+      });
+      const fetchRes = await fetch(url);
+      if (!fetchRes.ok) throw new Error("Failed to fetch media from Firebase");
+      const buffer = Buffer.from(await fetchRes.arrayBuffer());
+      await writeFile(tempVideoPath, buffer);
+    } else if (file) {
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      await writeFile(tempVideoPath, buffer);
+    }
     console.log(`[CAPTION PIPELINE] Saved temp video to ${tempVideoPath} for transcription`);
 
     // Use FFMPEG to extract just the required audio slice
-    let uploadMime = file.type;
+    let uploadMime = file ? file.type : "video/mp4";
     finalUploadPath = tempVideoPath;
     
     if (startTime && endTime) {
@@ -87,7 +103,7 @@ export async function POST(req: Request) {
     console.log(`[CAPTION PIPELINE] Uploading audio to Gemini for transcription...`);
     const uploadResult = await fileManager.uploadFile(finalUploadPath, {
       mimeType: uploadMime,
-      displayName: "Transcription_" + file.name,
+      displayName: "Transcription_" + (file ? file.name : fileKey || 'video'),
     });
     
     console.log(`[CAPTION PIPELINE] Uploaded file to Gemini for transcription: ${uploadResult.file.name}`);

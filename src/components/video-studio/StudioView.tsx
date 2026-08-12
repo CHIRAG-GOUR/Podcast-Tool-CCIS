@@ -539,29 +539,29 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                     const mStart = mediaStart || 0;
                                     const mEnd = mediaEnd || (mStart + duration);
 
-                                    if ((!clipCaptions || clipCaptions.length === 0) && initialCaptions && initialCaptions.length > 0) {
-                                       console.log(`[CAPTION PIPELINE] Slicing initialCaptions for clip '${clip.title}' (${mStart}s - ${mEnd}s)`);
-                                       clipCaptions = initialCaptions
-                                          .filter((c: any) => {
-                                             const s = c.start ?? c.start_time ?? 0;
-                                             const e = c.end ?? c.end_time ?? 0;
-                                             return s >= mStart - 1.0 && e <= mEnd + 1.0;
-                                          })
-                                          .map((c: any) => {
-                                             const origStart = c.start ?? c.start_time ?? 0;
-                                             const origEnd = c.end ?? c.end_time ?? 0;
-                                             return {
-                                                ...c,
-                                                start: Math.max(0, origStart - mStart),
-                                                end: Math.max(0, origEnd - mStart),
-                                                words: c.words ? c.words.map((w: any) => ({
-                                                   ...w,
-                                                   start: Math.max(0, (w.start ?? origStart) - mStart),
-                                                   end: Math.max(0, (w.end ?? origEnd) - mStart),
-                                                })) : []
-                                             };
-                                          });
-                                    }
+                                     if ((!clipCaptions || clipCaptions.length === 0) && initialCaptions && initialCaptions.length > 0) {
+                                        console.log(`[CAPTION PIPELINE] Slicing initialCaptions for clip '${clip.title}' (${mStart}s - ${mEnd}s)`);
+                                        clipCaptions = initialCaptions
+                                           .filter((c: any) => {
+                                              const s = typeof c.start === 'number' ? c.start : (typeof c.start_time === 'number' ? c.start_time : parseFloat(String(c.start || c.start_time || 0)) || 0);
+                                              const e = typeof c.end === 'number' ? c.end : (typeof c.end_time === 'number' ? c.end_time : parseFloat(String(c.end || c.end_time || 0)) || 0);
+                                              return e >= mStart && s <= mEnd;
+                                           })
+                                           .map((c: any) => {
+                                              const origStart = typeof c.start === 'number' ? c.start : (typeof c.start_time === 'number' ? c.start_time : parseFloat(String(c.start || c.start_time || 0)) || 0);
+                                              const origEnd = typeof c.end === 'number' ? c.end : (typeof c.end_time === 'number' ? c.end_time : parseFloat(String(c.end || c.end_time || 0)) || 0);
+                                              return {
+                                                 ...c,
+                                                 start: Math.max(0, origStart - mStart),
+                                                 end: Math.max(0, origEnd - mStart),
+                                                 words: Array.isArray(c.words) ? c.words.map((w: any) => ({
+                                                    ...w,
+                                                    start: Math.max(0, (typeof w.start === 'number' ? w.start : parseFloat(String(w.start || origStart)) || origStart) - mStart),
+                                                    end: Math.max(0, (typeof w.end === 'number' ? w.end : parseFloat(String(w.end || origEnd)) || origEnd) - mStart),
+                                                 })) : []
+                                              };
+                                           });
+                                     }
 
                                     if (clipCaptions && clipCaptions.length > 0) {
                                        console.log(`[CAPTION PIPELINE] Processing ${clipCaptions.length} captions for clip '${clip.title}'`);
@@ -690,34 +690,69 @@ export function StudioView({ file, fileKey, fileUrl, clips: initialClips, initia
                                     const sourceClip = aiClips.find((c: any) => c.title === targetClip.title);
                                     let rawCaptions = sourceClip?.captions;
 
-                                    if ((!rawCaptions || rawCaptions.length === 0) && initialCaptions && initialCaptions.length > 0) {
-                                       console.log(`[CAPTION PIPELINE] Slicing initialCaptions for target clip (${mStart}s - ${mEnd}s)`);
-                                       rawCaptions = initialCaptions
-                                          .filter((c: any) => {
-                                             const s = c.start ?? c.start_time ?? 0;
-                                             const e = c.end ?? c.end_time ?? 0;
-                                             return s >= mStart - 1.0 && e <= mEnd + 1.0;
-                                          })
-                                          .map((c: any) => {
-                                             const origStart = c.start ?? c.start_time ?? 0;
-                                             const origEnd = c.end ?? c.end_time ?? 0;
-                                             return {
-                                                ...c,
-                                                start: Math.max(0, origStart - mStart),
-                                                end: Math.max(0, origEnd - mStart),
-                                                words: c.words ? c.words.map((w: any) => ({
-                                                   ...w,
-                                                   start: Math.max(0, (w.start ?? origStart) - mStart),
-                                                   end: Math.max(0, (w.end ?? origEnd) - mStart),
-                                                })) : []
-                                             };
-                                          });
-                                    }
+                                     if ((!rawCaptions || rawCaptions.length === 0) && initialCaptions && initialCaptions.length > 0) {
+                                        if (targetClip.title === 'Podcast Source' || targetClip.id === 'c1' || !targetClip.mediaStart) {
+                                           console.log(`[CAPTION PIPELINE] Using full initialCaptions (${initialCaptions.length} items) for main video '${targetClip.title}'`);
+                                           rawCaptions = initialCaptions;
+                                        } else {
+                                           console.log(`[CAPTION PIPELINE] Slicing initialCaptions for target clip (${mStart}s - ${mEnd}s)`);
+                                           rawCaptions = initialCaptions
+                                              .filter((c: any) => {
+                                                 const s = typeof c.start === 'number' ? c.start : (typeof c.start_time === 'number' ? c.start_time : parseFloat(String(c.start || c.start_time || 0)) || 0);
+                                                 const e = typeof c.end === 'number' ? c.end : (typeof c.end_time === 'number' ? c.end_time : parseFloat(String(c.end || c.end_time || 0)) || 0);
+                                                 return e >= mStart && s <= mEnd;
+                                              })
+                                              .map((c: any) => {
+                                                 const origStart = typeof c.start === 'number' ? c.start : (typeof c.start_time === 'number' ? c.start_time : parseFloat(String(c.start || c.start_time || 0)) || 0);
+                                                 const origEnd = typeof c.end === 'number' ? c.end : (typeof c.end_time === 'number' ? c.end_time : parseFloat(String(c.end || c.end_time || 0)) || 0);
+                                                 return {
+                                                    ...c,
+                                                    start: Math.max(0, origStart - mStart),
+                                                    end: Math.max(0, origEnd - mStart),
+                                                    words: Array.isArray(c.words) ? c.words.map((w: any) => ({
+                                                       ...w,
+                                                       start: Math.max(0, (typeof w.start === 'number' ? w.start : parseFloat(String(w.start || origStart)) || origStart) - mStart),
+                                                       end: Math.max(0, (typeof w.end === 'number' ? w.end : parseFloat(String(w.end || origEnd)) || origEnd) - mStart),
+                                                    })) : []
+                                                 };
+                                              });
+                                        }
+                                     }
 
-                                    if (!rawCaptions || rawCaptions.length === 0) {
-                                       alert("No caption data available for this clip segment.");
-                                       return;
-                                    }
+                                     if (!rawCaptions || rawCaptions.length === 0) {
+                                        setIsGeneratingCaptions(true);
+                                        try {
+                                           const formData = new FormData();
+                                           if (fileKey) {
+                                              formData.append('fileKey', fileKey);
+                                           } else if (file) {
+                                              formData.append('video', file);
+                                           }
+                                           if (mStart > 0) formData.append('start_time', String(mStart));
+                                           if (mEnd > 0) formData.append('end_time', String(mEnd));
+
+                                           const secretToken = process.env.NEXT_PUBLIC_API_SECRET_TOKEN || 'podcast_secure_v1_987654321';
+                                           const res = await fetch('/api/video/transcribe', {
+                                              method: 'POST',
+                                              headers: { 'Authorization': `Bearer ${secretToken}` },
+                                              body: formData
+                                           });
+                                           const data = await res.json();
+                                           if (data.captions && data.captions.length > 0) {
+                                              rawCaptions = data.captions;
+                                           } else {
+                                              alert(data.error || "No caption data could be generated for this video.");
+                                              setIsGeneratingCaptions(false);
+                                              return;
+                                           }
+                                        } catch (err) {
+                                           alert("Failed to generate captions for this clip.");
+                                           setIsGeneratingCaptions(false);
+                                           return;
+                                        } finally {
+                                           setIsGeneratingCaptions(false);
+                                        }
+                                     }
 
                                     const formatted = segmentTranscriptIntoCaptions(rawCaptions);
                                     const newCaptionClip = {
