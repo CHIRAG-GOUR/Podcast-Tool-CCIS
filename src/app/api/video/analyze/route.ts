@@ -86,31 +86,26 @@ export async function POST(req: Request) {
       console.log(`Saved temp media file to ${tempFilePath} (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
     }
 
-    // Determine if file is already audio to skip server FFmpeg extraction
+    // Always compress to tiny 32kbps AAC m4a before sending to Gemini.
+    // For audio-only input (WAV from client extraction), this takes ~1-2 seconds.
+    // For video input (fallback), this takes ~10-15 seconds (same as before).
+    // Either way, Gemini receives a small ~14MB m4a instead of a 100MB+ WAV or 2GB video.
     let finalUploadPath = ffmpegInputPath;
     let finalMimeType = file ? file.type : "video/mp4";
-    const isAlreadyAudio = file && (
-      file.type.startsWith('audio/') || 
-      file.name.endsWith('.wav') || 
-      file.name.endsWith('.mp3') || 
-      file.name.endsWith('.m4a') || 
-      file.name.includes('_audio')
+    const isAudioInput = file && (
+      file.type.startsWith('audio/') ||
+      file.name.endsWith('.wav') ||
+      file.name.endsWith('.mp3') ||
+      file.name.endsWith('.m4a')
     );
-
-    if (isAlreadyAudio) {
-      console.log(`[SPEED OPTIMIZATION] Uploaded payload is already optimized audio (${file.type || 'audio/wav'}). Skipping server FFmpeg extraction!`);
-      finalUploadPath = tempFilePath;
-      finalMimeType = file.type || "audio/wav";
-    } else {
-      console.log("Extracting audio from video file before sending to Gemini...");
-      try {
-        await execPromise(`"${ffmpegInstaller.path}" -i "${ffmpegInputPath}" -vn -c:a aac -b:a 32k "${compressedPath}" -y`);
-        finalUploadPath = compressedPath;
-        finalMimeType = "audio/mp4";
-        console.log("Audio extraction finished successfully.");
-      } catch (err) {
-        console.error("Audio extraction failed, using original file (this may fail if file is huge and not local):", err);
-      }
+    console.log(`[Pipeline] Input type: ${isAudioInput ? 'pre-extracted audio' : 'video'} (${file?.type || 'unknown'}). Compressing to 32kbps AAC m4a...`);
+    try {
+      await execPromise(`"${ffmpegInstaller.path}" -i "${ffmpegInputPath}" -vn -c:a aac -b:a 32k "${compressedPath}" -y`);
+      finalUploadPath = compressedPath;
+      finalMimeType = "audio/mp4";
+      console.log(`[Pipeline] Compression complete. Ready for Gemini upload.`);
+    } catch (err) {
+      console.error("[Pipeline] FFmpeg compression failed, using original file:", err);
     }
 
     // Upload to Gemini
