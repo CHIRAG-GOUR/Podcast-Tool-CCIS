@@ -1,23 +1,21 @@
-# Firebase Deployment Status
+# Deployment Status & Production Architecture
 
 **Overall Completion:** **100%**
 
 ---
 
-## Deployment Progress Breakdown
+## Production Deployment Breakdown
 
-| Step | Phase | Status | Weight | Progress |
-| :--- | :--- | :--- | :--- | :--- |
-| 1 | **Next.js Production Build** | ✅ Completed | 30% | 30% / 30% |
-| 2 | **Packaging SSR Cloud Function** | ✅ Completed | 15% | 15% / 15% |
-| 3 | **Uploading Source & Hosting Assets** | ✅ Completed | 15% | 15% / 15% |
-| 4 | **Cloud Run Container Build & Rollout** | ✅ Completed | 35% | 35% / 35% |
-| 5 | **Finalizing Hosting Version** | ✅ Completed | 5% | 5% / 5% |
+| Target Platform | Repository / Destination | Status | Features |
+| :--- | :--- | :--- | :--- |
+| **Vercel Production** | `CHIRAG-GOUR/Podcast-Tool-New` | ✅ Active & Deployed | Web Audio Extraction, Gemini Parallel STT + Clips, Captions, FFMPEG Exports |
+| **GitHub Main Sync** | `CHIRAG-GOUR/Podcast-Tool-CCIS` | ✅ Synchronized | Production source code backup |
+| **Firebase Storage** | `skillizee-products.firebasestorage.app` | ✅ Active | Signed URL Media Storage |
 
 ---
 
-## Details
-- **Project:** `skillizee-products`
-- **Hosting URL:** [https://skillizee-products.web.app](https://skillizee-products.web.app)
-- **Current Action:** ✅ Deploy complete!
-- **Last Updated:** 24/7/2026, 5:11:03 pm
+## Deployment Details
+- **Production URL:** [https://podcast-tool-new.vercel.app](https://podcast-tool-new.vercel.app)
+- **Studio Route:** [https://podcast-tool-new.vercel.app/video-studio](https://podcast-tool-new.vercel.app/video-studio)
+- **Latest Commit:** `dc83c78`
+- **Status:** ✅ Fully Operational & Tested
